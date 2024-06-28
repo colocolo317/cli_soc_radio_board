@@ -26,7 +26,7 @@ source:
 - {path: console_commands/src/console_command_database.c}
 - {path: console_commands/src/console_variable_database.c}
 include:
-- path: ''
+- path: .
   file_list:
   - {path: app.h}
 - path: config
@@ -49,6 +49,7 @@ component:
 - {from: wiseconnect3_sdk, id: iot_socket}
 - {from: wiseconnect3_sdk, id: network_manager}
 - {from: wiseconnect3_sdk, id: si917_memory_default_config}
+- {from: wiseconnect3_sdk, id: sl_si91x_asynchronous_socket}
 - {from: wiseconnect3_sdk, id: sl_si91x_basic_buffers}
 - {from: wiseconnect3_sdk, id: sl_si91x_internal_stack}
 - {from: wiseconnect3_sdk, id: syscalls}
@@ -98,6 +99,6 @@ ui_hints:
   - {path: readme.md, focus: true}
 sdk_extension:
 - {id: wiseconnect3_sdk, version: 3.1.4}
-post_build: {path: ../../../SDKs/gecko_sdk_4/extension/wiseconnect/utilities/postbuild_profile/wiseconnect_soc.slpb,
+post_build: {path: ../../SDKs/gecko_sdk_2/extension/wiseconnect/utilities/postbuild_profile/wiseconnect_soc.slpb,
   profile: wiseconnect_soc}
 
