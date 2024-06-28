@@ -207,7 +207,7 @@
 									<listOptionValue builtIn="false" value="SLI_SI91X_DBG_MIDDLEWARE_EN=1"/>
 									<listOptionValue builtIn="false" value="SLI_SI91X_MCU_INTR_BASED_RX_ON_UART=1"/>
 									<listOptionValue builtIn="false" value="SLI_SI91X_OFFLOAD_NETWORK_STACK=1"/>
-									<listOptionValue builtIn="false" value="SL_SI91X_CLI_CONSOLE_MAX_ARG_COUNT=27"/>
+									<listOptionValue builtIn="false" value="SL_SI91X_CLI_CONSOLE_MAX_ARG_COUNT=30"/>
 									<listOptionValue builtIn="false" value="SL_SI91X_PRINT_DBG_LOG=1"/>
 									<listOptionValue builtIn="false" value="SIWG917M111MGTBA=1"/>
 									<listOptionValue builtIn="false" value="SLI_SI917=1"/>

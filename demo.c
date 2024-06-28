@@ -33,6 +33,10 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
+#define AMPAK_CLI_VERSION   "ve01.02.242604"
+#define VERSION_GOAL        "ax args fix"
+#define MODIFY_START_DATE   "2024.06.28"
+
 /******************************************************
  *                   Enumerations
  ******************************************************/
@@ -129,13 +133,19 @@ void application_start(const void *unused)
 #endif
 
   SL_DEBUG_LOG("app start\n");
+  sl_status_t result;
 
+  printf("\r\n\r\n=== AMPAK CLI version: %s ===\r\n", AMPAK_CLI_VERSION);
+
+  //result = console_run_single_command_by_text("wifi_init");
+  //result = console_run_single_command_by_text("wifi_get_fw_version");
+  //result = console_run_single_command_by_text("wifi_deinit");
   printf("Ready\r\n");
 
   console_line_ready = 0;
 
   while (1) {
-    printf("\r\n> \r\n");
+    printf("> \r\n");
 #ifndef SLI_SI91X_MCU_INTERFACE
     while (!end_of_cmd) {
       iostream_rx();
@@ -147,7 +157,7 @@ void application_start(const void *unused)
       osDelay(20);
     }
 
-    sl_status_t result = console_process_buffer(&console_command_database, &args, &command);
+    result = console_process_buffer(&console_command_database, &args, &command);
 
     if (result == SL_STATUS_OK) {
       SL_DEBUG_LOG("Processing command\n");
@@ -171,7 +181,7 @@ void application_start(const void *unused)
 
 void print_status(sl_status_t status, uint32_t duration)
 {
-  printf("\r\n0x%05lX: (%lums) %s\r\n", status, duration, (status == SL_STATUS_OK) ? "Success" : "");
+  printf("\r\n0x%05lX: (%lums) %s\r\n\r\n", status, duration, (status == SL_STATUS_OK) ? "Success" : "");
 }
 
 sl_status_t help_command_handler(console_args_t *arguments)
@@ -184,7 +194,11 @@ sl_status_t help_command_handler(console_args_t *arguments)
     print_command_args((console_descriptive_command_t *)console_command_database.entries[a].value);
     printf("\r\n   ");
     printf(((console_descriptive_command_t *)console_command_database.entries[a].value)->description);
+    printf("\r\n");
+
   }
+
+  printf("\r\n\r\n=== AMPAK CLI version: %s ===\r\n\r\n", AMPAK_CLI_VERSION);
   return SL_STATUS_OK;
 }
 
