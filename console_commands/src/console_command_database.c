@@ -1505,6 +1505,25 @@ static const console_descriptive_command_t _si91x_frequency_offset_command = {
   .argument_list = { CONSOLE_ARG_INT, CONSOLE_ARG_END }
 };
 
+extern sl_status_t wifi_per_normal_command_handler( console_args_t* arguments );
+static const char* _wifi_per_normal_command_arg_help[] = {
+
+};
+static const console_descriptive_command_t _wifi_per_normal_command = {
+    .description      = "WiFi normal mode throughput test\r\n"
+                        "  usage: wifi_per_normal <wifi_mode> <throughput_type> -a <ip_addr>\r\n"
+                        "  <wifi_mode>: sta_mode = 0, ap_mode = 1\r\n"
+                        "  <throughput_type>: udp_tx = 0, udp_rx = 1, tcp_tx = 2, tcp_rx = 3\r\n"
+                        "  <ip_addr>: STA mode server IP address, default 192.168.50.223\r\n"
+                        "  (example) wifi_per_normal 0 3 -a 192.168.50.1\r\n",
+    .argument_help    = _wifi_per_normal_command_arg_help,
+    .handler          = wifi_per_normal_command_handler,
+    .argument_list    = { CONSOLE_ARG_UINT,
+                          CONSOLE_ARG_UINT,
+                          CONSOLE_OPTIONAL_ARG('a', CONSOLE_ARG_STRING),
+                          CONSOLE_ARG_END
+                        }
+};
 const console_database_t console_command_database = { CONSOLE_DATABASE_ENTRIES(
   { "get", &_get_command },
   { "help", &_help_command },
@@ -1616,4 +1635,6 @@ const console_database_t console_command_database = { CONSOLE_DATABASE_ENTRIES(
   { "ble_stop_advertising", &_ble_stop_advertising_command },
   { "si91x_calibration_write", &_si91x_calibration_write_command },
   { "si91x_calibration_read", &_si91x_calibration_read_command },
-  { "si91x_frequency_offset", &_si91x_frequency_offset_command },) };
+  { "si91x_frequency_offset", &_si91x_frequency_offset_command },
+  { "wifi_per_normal", &_wifi_per_normal_command},
+  ) };
