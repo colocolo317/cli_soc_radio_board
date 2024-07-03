@@ -1361,6 +1361,7 @@ static const console_descriptive_command_t _ble_per_transmit_command = {
                      CONSOLE_OPTIONAL_ARG('d', CONSOLE_ARG_UINT),
                      CONSOLE_OPTIONAL_ARG('c', CONSOLE_ARG_UINT),
                      CONSOLE_OPTIONAL_ARG('n', CONSOLE_ARG_UINT),
+                     CONSOLE_OPTIONAL_ARG('p', CONSOLE_ARG_UINT),
                      CONSOLE_ARG_END }
 };
 
