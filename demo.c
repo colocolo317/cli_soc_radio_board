@@ -33,8 +33,8 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242801"
-#define VERSION_GOAL        "add ap channel argument"
+#define AMPAK_CLI_VERSION   "ve01.02.242802"
+#define VERSION_GOAL        "add region code argument"
 #define MODIFY_START_DATE   "2024.07.09"
 
 /******************************************************

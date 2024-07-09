@@ -45,6 +45,7 @@ typedef struct
   uint8_t tcp_udp_x_tx_rx;
   uint8_t security; // open/wpa2
   uint16_t channel;
+  uint8_t region;
   char* str_ip;  // len: [IP_ADDR_MAX_LEN+1];  for sta mode
 }
 wifi_per_normal_config_t;

@@ -127,7 +127,7 @@ uint32_t tick_count_s = 1;
  ******************************************************/
 
 
-static const sl_wifi_device_configuration_t sta_throughput_configuration = {
+static sl_wifi_device_configuration_t sta_throughput_configuration = {
   .boot_option = LOAD_NWP_FW,
   .mac_address = NULL,
   .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
@@ -157,7 +157,7 @@ static const sl_wifi_device_configuration_t sta_throughput_configuration = {
                .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
 };
 
-static const sl_wifi_device_configuration_t softap_throughput_configuration = {
+static sl_wifi_device_configuration_t softap_throughput_configuration = {
   .boot_option = LOAD_NWP_FW,
   .mac_address = NULL,
   .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
@@ -258,7 +258,8 @@ sl_net_wifi_client_profile_t profile = { 0 };
 uint8_t wifi_mode = 0;            //0:sta mode, 1:ap mode
 // Throughput measurement type
 uint8_t troughput_type = 2;     //0:udp_tx, 1:, udp_rx, 2: tcp_tx, 3: tcp_rx
-uint16_t ap_channel = SL_WIFI_AUTO_CHANNEL; // TODO: assign ap channel
+uint16_t ap_channel = SL_WIFI_AUTO_CHANNEL; // assign ap channel
+uint8_t set_region = US;
 char server_ip_sta[16] = {0};
 
 unsigned int max_data_buffer_size;
@@ -294,19 +295,36 @@ sl_status_t wifi_per_normal_command_handler( console_args_t* args )
   console_config.tcp_udp_x_tx_rx = (uint8_t)GET_COMMAND_ARG(args, 1);
   console_config.channel = (uint16_t)GET_OPTIONAL_COMMAND_ARG(args, 2, SL_WIFI_AUTO_CHANNEL, uint16_t);
   console_config.str_ip  = GET_OPTIONAL_COMMAND_ARG(args, 3, NULL, char*);
+  console_config.region  = GET_OPTIONAL_COMMAND_ARG(args, 4, US, uint8_t);
 
   wifi_per_normal_start(&console_config);
 
   return status;
 }
 
+void print_region_set(void)
+{
+  printf("Set region: ");
+  switch(set_region)
+  {
+    case DEFAULT_REGION: printf("Factory default region "); break;///< Factory default region
+    case US:             printf("United States "); break;///< United States
+    case EU:             printf("European Union "); break;///< European Union
+    case JP:             printf("Japan "); break;///< Japan
+    case WORLD_DOMAIN:   printf("World wide domain "); break;///< World wide domain
+    case KR:             printf("Korea "); break;///< Korea
+    case SG:             printf("Singapore (not currently supported) "); break;///< Singapore (not currently supported)
+    default:             printf("Error region "); break;
+  }
+}
+
 void print_wifi_mode(void)
 {
   switch(wifi_mode)
   {
-    case wifi_sta_mode: printf("wifi sta mode"); break;
-    case wifi_ap_mode:  printf("wifi ap mode"); break;
-    default: printf("error wifi device mode");
+    case wifi_sta_mode: printf("wifi sta mode "); break;
+    case wifi_ap_mode:  printf("wifi ap mode "); break;
+    default: printf("error wifi device mode ");
   }
 }
 
@@ -314,13 +332,13 @@ void print_throughput_type(void)
 {
   switch(troughput_type)
   {
-    case udp_tx: printf("udp_tx"); break;
-    case udp_rx: printf("udp_rx"); break;
-    case tcp_tx: printf("tcp_tx"); break;
-    case tcp_rx: printf("tcp_rx"); break;
-    case tls_tx: printf("tls_tx"); break;
-    case tls_rx: printf("tls_rx"); break;
-    default: printf("error troughput type");
+    case udp_tx: printf("udp_tx "); break;
+    case udp_rx: printf("udp_rx "); break;
+    case tcp_tx: printf("tcp_tx "); break;
+    case tcp_rx: printf("tcp_rx "); break;
+    case tls_tx: printf("tls_tx "); break;
+    case tls_rx: printf("tls_rx "); break;
+    default: printf("error troughput type ");
   }
 }
 
@@ -332,10 +350,13 @@ void wifi_per_normal_start(void *args)
     wifi_mode = config.ap_sta_mode;
     troughput_type = config.tcp_udp_x_tx_rx;
     ap_channel = config.channel;
+    set_region = config.region;
   }
   print_wifi_mode();
   printf(" ; ");
   print_throughput_type();
+  printf(" ; ");
+  print_region_set();
   printf("\r\n");
   osThreadNew((osThreadFunc_t)application_start, (wifi_per_normal_config_t*) args, &wifi_per_normal_thread_attributes);
 }
@@ -424,6 +445,11 @@ if (wifi_mode == wifi_sta_mode)
     memcpy(server_ip_sta, config.str_ip, MIN((strlen(config.str_ip)+1), (IP_ADDR_MAX_LEN+1)));
   }
 
+  if(set_region != US)
+  {
+    sta_throughput_configuration.region_code = set_region;
+  }
+
   printf("STA mode, server IP %s\r\n", server_ip_sta);
   status = sl_net_init(SL_NET_WIFI_CLIENT_INTERFACE, &sta_throughput_configuration, NULL, NULL);
   if (status != SL_STATUS_OK) {
@@ -474,6 +500,11 @@ if (wifi_mode == wifi_sta_mode)
 }
 else
 {
+  if(set_region != US)
+  {
+    softap_throughput_configuration.region_code = set_region;
+  }
+
   printf("AP mode\r\n");
 
   status = sl_net_init(SL_NET_WIFI_AP_INTERFACE, &softap_throughput_configuration, NULL, NULL);

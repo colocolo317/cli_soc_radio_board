@@ -1512,17 +1512,21 @@ static const char* _wifi_per_normal_command_arg_help[] = {
 };
 static const console_descriptive_command_t _wifi_per_normal_command = {
     .description      = "WiFi normal mode throughput test\r\n"
-                        "  usage: wifi_per_normal <wifi_mode> <throughput_type> -a <ip_addr>\r\n"
+                        "  usage: wifi_per_normal <wifi_mode> <throughput_type> -c <ap_channel> -a <ip_addr> -r <region>\r\n"
                         "  <wifi_mode>: sta_mode = 0, ap_mode = 1\r\n"
                         "  <throughput_type>: udp_tx = 0, udp_rx = 1, tcp_tx = 2, tcp_rx = 3\r\n"
+                        "  <ap_channel> 1~11\r\n"
                         "  <ip_addr>: STA mode server IP address, default 192.168.50.223\r\n"
-                        "  (example) wifi_per_normal 0 3 -a 192.168.50.1\r\n",
+                        "  <region> [0: DEFAULT_REGION], [1: US], [2: EU], [3: JP], [4: WORLD_DOMAIN], [5: KR]\r\n"
+                        "  (example 1) wifi_per_normal 0 3 -a 192.168.50.1\r\n"
+                        "  (example 2) wifi_per_normal 1 0 -c 11 -r 3\r\n",
     .argument_help    = _wifi_per_normal_command_arg_help,
     .handler          = wifi_per_normal_command_handler,
     .argument_list    = { CONSOLE_ARG_UINT,
                           CONSOLE_ARG_UINT,
                           CONSOLE_OPTIONAL_ARG('c', CONSOLE_ARG_UINT),
                           CONSOLE_OPTIONAL_ARG('a', CONSOLE_ARG_STRING),
+                          CONSOLE_OPTIONAL_ARG('r', CONSOLE_ARG_UINT),
                           CONSOLE_ARG_END
                         }
 };
