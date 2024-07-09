@@ -1521,6 +1521,7 @@ static const console_descriptive_command_t _wifi_per_normal_command = {
     .handler          = wifi_per_normal_command_handler,
     .argument_list    = { CONSOLE_ARG_UINT,
                           CONSOLE_ARG_UINT,
+                          CONSOLE_OPTIONAL_ARG('c', CONSOLE_ARG_UINT),
                           CONSOLE_OPTIONAL_ARG('a', CONSOLE_ARG_STRING),
                           CONSOLE_ARG_END
                         }

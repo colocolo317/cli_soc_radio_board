@@ -30,6 +30,7 @@
 
 #include "sl_board_configuration.h"
 #include "cmsis_os2.h"
+#include "sl_net_default_values.h"
 #include "sl_wifi_callback_framework.h"
 #include "sl_wifi.h"
 #include "sl_net.h"
@@ -126,7 +127,7 @@ uint32_t tick_count_s = 1;
  ******************************************************/
 
 
-  static const sl_wifi_device_configuration_t sta_throughput_configuration = {
+static const sl_wifi_device_configuration_t sta_throughput_configuration = {
   .boot_option = LOAD_NWP_FW,
   .mac_address = NULL,
   .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
@@ -156,34 +157,69 @@ uint32_t tick_count_s = 1;
                .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
 };
 
-    static const sl_wifi_device_configuration_t softap_throughput_configuration = {
-      .boot_option = LOAD_NWP_FW,
-      .mac_address = NULL,
-      .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
-      .region_code = US,
-      .boot_config = { .oper_mode = SL_SI91X_ACCESS_POINT_MODE,
-                       .coex_mode = SL_SI91X_WLAN_ONLY_MODE,
-                       .feature_bit_map =
-                         (SL_SI91X_FEAT_SECURITY_OPEN | SL_SI91X_FEAT_AGGREGATION | SL_SI91X_FEAT_WPS_DISABLE),
-                       .tcp_ip_feature_bit_map = (SL_SI91X_TCP_IP_FEAT_DHCPV4_SERVER | SL_SI91X_TCP_IP_FEAT_SSL
-                                                  | SL_SI91X_TCP_IP_FEAT_EXTENSION_VALID),
-                       .custom_feature_bit_map =
-                         (SL_SI91X_CUSTOM_FEAT_EXTENTION_VALID | SL_SI91X_CUSTOM_FEAT_SOC_CLK_CONFIG_160MHZ),
-                       .ext_custom_feature_bit_map = (MEMORY_CONFIG
-    #ifdef SLI_SI917
-                                                      | SL_SI91X_EXT_FEAT_FRONT_END_SWITCH_PINS_ULP_GPIO_4_5_0
-    #endif
-                                                      ),
-                       .bt_feature_bit_map = 0,
-                       .ext_tcp_ip_feature_bit_map =
-                         (SL_SI91X_EXT_TCP_IP_WINDOW_DIV | SL_SI91X_CONFIG_FEAT_EXTENTION_VALID
-                          | SL_SI91X_EXT_TCP_IP_FEAT_SSL_THREE_SOCKETS | SL_SI91X_EXT_TCP_IP_WAIT_FOR_SOCKET_CLOSE),
-                       .ble_feature_bit_map     = 0,
-                       .ble_ext_feature_bit_map = 0,
-                       .config_feature_bit_map  = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP },
-      .ta_pool = { .tx_ratio_in_buffer_pool     = TX_POOL_RATIO,
-                   .rx_ratio_in_buffer_pool     = RX_POOL_RATIO,
-                   .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
+static const sl_wifi_device_configuration_t softap_throughput_configuration = {
+  .boot_option = LOAD_NWP_FW,
+  .mac_address = NULL,
+  .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
+  .region_code = US,
+  .boot_config = { .oper_mode = SL_SI91X_ACCESS_POINT_MODE,
+                   .coex_mode = SL_SI91X_WLAN_ONLY_MODE,
+                   .feature_bit_map =
+                     (SL_SI91X_FEAT_SECURITY_OPEN | SL_SI91X_FEAT_AGGREGATION | SL_SI91X_FEAT_WPS_DISABLE),
+                   .tcp_ip_feature_bit_map = (SL_SI91X_TCP_IP_FEAT_DHCPV4_SERVER | SL_SI91X_TCP_IP_FEAT_SSL
+                                              | SL_SI91X_TCP_IP_FEAT_EXTENSION_VALID),
+                   .custom_feature_bit_map =
+                     (SL_SI91X_CUSTOM_FEAT_EXTENTION_VALID | SL_SI91X_CUSTOM_FEAT_SOC_CLK_CONFIG_160MHZ),
+                   .ext_custom_feature_bit_map = (MEMORY_CONFIG
+#ifdef SLI_SI917
+                                                  | SL_SI91X_EXT_FEAT_FRONT_END_SWITCH_PINS_ULP_GPIO_4_5_0
+#endif
+                                                  ),
+                   .bt_feature_bit_map = 0,
+                   .ext_tcp_ip_feature_bit_map =
+                     (SL_SI91X_EXT_TCP_IP_WINDOW_DIV | SL_SI91X_CONFIG_FEAT_EXTENTION_VALID
+                      | SL_SI91X_EXT_TCP_IP_FEAT_SSL_THREE_SOCKETS | SL_SI91X_EXT_TCP_IP_WAIT_FOR_SOCKET_CLOSE),
+                   .ble_feature_bit_map     = 0,
+                   .ble_ext_feature_bit_map = 0,
+                   .config_feature_bit_map  = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP },
+  .ta_pool = { .tx_ratio_in_buffer_pool     = TX_POOL_RATIO,
+               .rx_ratio_in_buffer_pool     = RX_POOL_RATIO,
+               .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
+};
+
+
+sl_net_wifi_ap_profile_t ap_net_config =
+    {                                       \
+        .config = { \
+            .ssid.value = DEFAULT_WIFI_AP_PROFILE_SSID, \
+            .ssid.length = sizeof(DEFAULT_WIFI_AP_PROFILE_SSID)-1, \
+            .channel.channel = SL_WIFI_AUTO_CHANNEL, \
+            .channel.band = SL_WIFI_AUTO_BAND, \
+            .channel.bandwidth = SL_WIFI_AUTO_BANDWIDTH, \
+            .security = SL_WIFI_WPA2, \
+            .encryption = SL_WIFI_CCMP_ENCRYPTION, \
+            .rate_protocol = SL_WIFI_RATE_PROTOCOL_AUTO, \
+            .options = 0, \
+            .credential_id = SL_NET_DEFAULT_WIFI_AP_CREDENTIAL_ID, \
+            .keepalive_type = SL_SI91X_AP_NULL_BASED_KEEP_ALIVE, \
+            .beacon_interval = 100, \
+            .client_idle_timeout = 0xFF, \
+            .dtim_beacon_count = 3, \
+            .maximum_clients = 3, \
+            .beacon_stop = 0, \
+            .tdi_flags =SL_WIFI_TDI_NONE, \
+            .is_11n_enabled = 0, \
+    }, \
+    .ip = { \
+        .mode      = SL_IP_MANAGEMENT_STATIC_IP, \
+        .type      = SL_IPV4, \
+        .host_name = NULL, \
+        .ip        = { \
+            .v4.ip_address.value = DEFAULT_WIFI_MODULE_IP_ADDRESS, \
+            .v4.gateway.value    = DEFAULT_WIFI_GATEWAY_ADDRESS, \
+            .v4.netmask.value    = DEFAULT_WIFI_SN_MASK_ADDRESS \
+    }, \
+    }                        \
     };
 
 static sl_si91x_socket_config_t socket_config = {
@@ -222,6 +258,7 @@ sl_net_wifi_client_profile_t profile = { 0 };
 uint8_t wifi_mode = 0;            //0:sta mode, 1:ap mode
 // Throughput measurement type
 uint8_t troughput_type = 2;     //0:udp_tx, 1:, udp_rx, 2: tcp_tx, 3: tcp_rx
+uint16_t ap_channel = SL_WIFI_AUTO_CHANNEL; // TODO: assign ap channel
 char server_ip_sta[16] = {0};
 
 unsigned int max_data_buffer_size;
@@ -255,7 +292,8 @@ sl_status_t wifi_per_normal_command_handler( console_args_t* args )
   static wifi_per_normal_config_t console_config ={0};
   console_config.ap_sta_mode = (uint8_t)GET_COMMAND_ARG(args, 0);
   console_config.tcp_udp_x_tx_rx = (uint8_t)GET_COMMAND_ARG(args, 1);
-  console_config.str_ip  = GET_OPTIONAL_COMMAND_ARG(args, 2, NULL, char*);
+  console_config.channel = (uint16_t)GET_OPTIONAL_COMMAND_ARG(args, 2, SL_WIFI_AUTO_CHANNEL, uint16_t);
+  console_config.str_ip  = GET_OPTIONAL_COMMAND_ARG(args, 3, NULL, char*);
 
   wifi_per_normal_start(&console_config);
 
@@ -293,6 +331,7 @@ void wifi_per_normal_start(void *args)
     wifi_per_normal_config_t config = *(wifi_per_normal_config_t*) args;
     wifi_mode = config.ap_sta_mode;
     troughput_type = config.tcp_udp_x_tx_rx;
+    ap_channel = config.channel;
   }
   print_wifi_mode();
   printf(" ; ");
@@ -458,7 +497,19 @@ else
     print_firmware_version(&firmware_version);
   }
 
-  status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_DEFAULT_WIFI_AP_PROFILE_ID);
+  //! XXX ap modify
+  if(ap_channel != SL_WIFI_AUTO_CHANNEL)
+  {
+    ap_net_config.config.channel.channel = ap_channel;
+    printf("AP channel assigned: %u\r\n",ap_channel);
+    status = sl_net_set_profile(SL_NET_WIFI_AP_INTERFACE, SL_NET_PROFILE_ID_1, &ap_net_config);
+    status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_PROFILE_ID_1);
+  }
+  else
+  {
+    printf("AP auto channel\r\n");
+    status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_DEFAULT_WIFI_AP_PROFILE_ID);
+  }
   if (status != SL_STATUS_OK) {
     printf("\r\nFailed to bring Wi-Fi AP interface up: 0x%lx\r\n", status);
     return;
