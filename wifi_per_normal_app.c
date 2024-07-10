@@ -303,9 +303,9 @@ void print_throughput_type(void);
 sl_status_t wifi_per_normal_stop_command_handler( console_args_t* args )
 {
   UNUSED_PARAMETER(args);
-  sl_status_t status = SL_STATUS_OK;
   wifi_per_terminate = 1;
-  return status;
+  printf("<WiFi per normal set stop>\r\n");
+  return SL_STATUS_OK;
 }
 
 
@@ -796,7 +796,7 @@ void receive_data_from_tcp_client(void)
     return;
   }
 
-  while (!has_data_received) {
+  while (!has_data_received && !wifi_per_terminate) {
     if (wifi_mode == wifi_ap_mode)
     {
       now = osKernelGetTickCount();
@@ -989,7 +989,7 @@ void receive_data_from_udp_client(void)
   }
   printf("\r\nListening on Local Port %d\r\n", LISTENING_PORT);
 
-  while (!has_data_received) {
+  while (!has_data_received && !wifi_per_terminate) {
     if (wifi_mode == wifi_ap_mode)
     {
       now = osKernelGetTickCount();
@@ -1122,7 +1122,7 @@ void receive_data_from_tls_server(void)
   }
   printf("\r\nSocket connected to TLS server\r\n");
 
-  while (!has_data_received) {
+  while (!has_data_received && !wifi_per_terminate) {
     osThreadYield();
   }
 

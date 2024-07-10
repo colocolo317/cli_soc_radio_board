@@ -1506,10 +1506,8 @@ static const console_descriptive_command_t _si91x_frequency_offset_command = {
   .argument_list = { CONSOLE_ARG_INT, CONSOLE_ARG_END }
 };
 
-extern sl_status_t wifi_per_normal_command_handler( console_args_t* arguments );
-static const char* _wifi_per_normal_command_arg_help[] = {
-
-};
+extern sl_status_t wifi_per_normal_command_handler(console_args_t* arguments );
+static const char* _wifi_per_normal_command_arg_help[] = {};
 static const console_descriptive_command_t _wifi_per_normal_command = {
     .description      = "WiFi normal mode throughput test\r\n"
                         "  usage: wifi_per_normal <wifi_mode> <throughput_type> -c <ap_channel> -a <ip_addr> -t <timeout> -r <region>\r\n"
@@ -1532,6 +1530,17 @@ static const console_descriptive_command_t _wifi_per_normal_command = {
                           CONSOLE_ARG_END
                         }
 };
+
+extern sl_status_t wifi_per_normal_stop_command_handler(console_args_t* arguments );
+static const char* _wifi_per_normal_stop_command_arg_help[] = {};
+static const console_descriptive_command_t _wifi_per_normal_stop_command = {
+    .description      = "Stop WiFi normal mode throughput test\r\n",
+    .argument_help    = _wifi_per_normal_stop_command_arg_help,
+    .handler          = wifi_per_normal_stop_command_handler,
+    .argument_list    = { CONSOLE_ARG_END }
+};
+
+
 const console_database_t console_command_database = { CONSOLE_DATABASE_ENTRIES(
   { "get", &_get_command },
   { "help", &_help_command },
@@ -1645,4 +1654,5 @@ const console_database_t console_command_database = { CONSOLE_DATABASE_ENTRIES(
   { "si91x_calibration_read", &_si91x_calibration_read_command },
   { "si91x_frequency_offset", &_si91x_frequency_offset_command },
   { "wifi_per_normal", &_wifi_per_normal_command},
+  { "wpn_stop", &_wifi_per_normal_stop_command},
   ) };
