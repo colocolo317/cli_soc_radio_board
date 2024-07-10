@@ -102,7 +102,7 @@ uint32_t tick_count_s = 1;
 
 /*****************************************************
  *                      Socket configuration
-*****************************************************/
+ *****************************************************/
 #define TOTAL_SOCKETS                   1  //@ Total number of sockets. TCP TX + TCP RX + UDP TX + UDP RX
 #define TOTAL_TCP_SOCKETS               1  //@ Total TCP sockets. TCP TX + TCP RX
 #define TOTAL_UDP_SOCKETS               0  //@ Total UDP sockets. UDP TX + UDP RX
@@ -128,63 +128,63 @@ uint32_t tick_count_s = 1;
 
 #if 1
 static sl_wifi_device_configuration_t sta_throughput_configuration = {
-  .boot_option = LOAD_NWP_FW,
-  .mac_address = NULL,
-  .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
-  .region_code = US,
-  .boot_config = { .oper_mode = SL_SI91X_CLIENT_MODE,
-                   .coex_mode = SL_SI91X_WLAN_ONLY_MODE,
-                   .feature_bit_map =
-                     (SL_SI91X_FEAT_SECURITY_OPEN | SL_SI91X_FEAT_AGGREGATION | SL_SI91X_FEAT_WPS_DISABLE),
-                   .tcp_ip_feature_bit_map = (SL_SI91X_TCP_IP_FEAT_DHCPV4_CLIENT | SL_SI91X_TCP_IP_FEAT_SSL
-                                              | SL_SI91X_TCP_IP_FEAT_EXTENSION_VALID),
-                   .custom_feature_bit_map =
-                     (SL_SI91X_CUSTOM_FEAT_EXTENTION_VALID | SL_SI91X_CUSTOM_FEAT_SOC_CLK_CONFIG_160MHZ),
-                   .ext_custom_feature_bit_map = (MEMORY_CONFIG
+    .boot_option = LOAD_NWP_FW,
+    .mac_address = NULL,
+    .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
+    .region_code = US,
+    .boot_config = { .oper_mode = SL_SI91X_CLIENT_MODE,
+        .coex_mode = SL_SI91X_WLAN_ONLY_MODE,
+        .feature_bit_map =
+            (SL_SI91X_FEAT_SECURITY_OPEN | SL_SI91X_FEAT_AGGREGATION | SL_SI91X_FEAT_WPS_DISABLE),
+            .tcp_ip_feature_bit_map = (SL_SI91X_TCP_IP_FEAT_DHCPV4_CLIENT | SL_SI91X_TCP_IP_FEAT_SSL
+                | SL_SI91X_TCP_IP_FEAT_EXTENSION_VALID),
+                .custom_feature_bit_map =
+                    (SL_SI91X_CUSTOM_FEAT_EXTENTION_VALID | SL_SI91X_CUSTOM_FEAT_SOC_CLK_CONFIG_160MHZ),
+                    .ext_custom_feature_bit_map = (MEMORY_CONFIG
 #ifdef SLI_SI917
-                                                  | SL_SI91X_EXT_FEAT_FRONT_END_SWITCH_PINS_ULP_GPIO_4_5_0
+                        | SL_SI91X_EXT_FEAT_FRONT_END_SWITCH_PINS_ULP_GPIO_4_5_0
 #endif
-                                                  ),
-                   .bt_feature_bit_map = 0,
-                   .ext_tcp_ip_feature_bit_map =
-                     (SL_SI91X_EXT_TCP_IP_WINDOW_DIV | SL_SI91X_CONFIG_FEAT_EXTENTION_VALID
-                      | SL_SI91X_EXT_TCP_IP_FEAT_SSL_THREE_SOCKETS | SL_SI91X_EXT_TCP_IP_WAIT_FOR_SOCKET_CLOSE),
-                   .ble_feature_bit_map     = 0,
-                   .ble_ext_feature_bit_map = 0,
-                   .config_feature_bit_map  = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP },
-  .ta_pool = { .tx_ratio_in_buffer_pool     = TX_POOL_RATIO,
-               .rx_ratio_in_buffer_pool     = RX_POOL_RATIO,
-               .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
+                    ),
+                    .bt_feature_bit_map = 0,
+                    .ext_tcp_ip_feature_bit_map =
+                        (SL_SI91X_EXT_TCP_IP_WINDOW_DIV | SL_SI91X_CONFIG_FEAT_EXTENTION_VALID
+                            | SL_SI91X_EXT_TCP_IP_FEAT_SSL_THREE_SOCKETS | SL_SI91X_EXT_TCP_IP_WAIT_FOR_SOCKET_CLOSE),
+                            .ble_feature_bit_map     = 0,
+                            .ble_ext_feature_bit_map = 0,
+                            .config_feature_bit_map  = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP },
+                            .ta_pool = { .tx_ratio_in_buffer_pool     = TX_POOL_RATIO,
+                                .rx_ratio_in_buffer_pool     = RX_POOL_RATIO,
+                                .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
 };
 
 static sl_wifi_device_configuration_t softap_throughput_configuration = {
-  .boot_option = LOAD_NWP_FW,
-  .mac_address = NULL,
-  .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
-  .region_code = US,
-  .boot_config = { .oper_mode = SL_SI91X_ACCESS_POINT_MODE,
-                   .coex_mode = SL_SI91X_WLAN_ONLY_MODE,
-                   .feature_bit_map =
-                     (SL_SI91X_FEAT_SECURITY_OPEN | SL_SI91X_FEAT_AGGREGATION | SL_SI91X_FEAT_WPS_DISABLE),
-                   .tcp_ip_feature_bit_map = (SL_SI91X_TCP_IP_FEAT_DHCPV4_SERVER | SL_SI91X_TCP_IP_FEAT_SSL
-                                              | SL_SI91X_TCP_IP_FEAT_EXTENSION_VALID),
-                   .custom_feature_bit_map =
-                     (SL_SI91X_CUSTOM_FEAT_EXTENTION_VALID | SL_SI91X_CUSTOM_FEAT_SOC_CLK_CONFIG_160MHZ),
-                   .ext_custom_feature_bit_map = (MEMORY_CONFIG
+    .boot_option = LOAD_NWP_FW,
+    .mac_address = NULL,
+    .band        = SL_SI91X_WIFI_BAND_2_4GHZ,
+    .region_code = US,
+    .boot_config = { .oper_mode = SL_SI91X_ACCESS_POINT_MODE,
+        .coex_mode = SL_SI91X_WLAN_ONLY_MODE,
+        .feature_bit_map =
+            (SL_SI91X_FEAT_SECURITY_OPEN | SL_SI91X_FEAT_AGGREGATION | SL_SI91X_FEAT_WPS_DISABLE),
+            .tcp_ip_feature_bit_map = (SL_SI91X_TCP_IP_FEAT_DHCPV4_SERVER | SL_SI91X_TCP_IP_FEAT_SSL
+                | SL_SI91X_TCP_IP_FEAT_EXTENSION_VALID),
+                .custom_feature_bit_map =
+                    (SL_SI91X_CUSTOM_FEAT_EXTENTION_VALID | SL_SI91X_CUSTOM_FEAT_SOC_CLK_CONFIG_160MHZ),
+                    .ext_custom_feature_bit_map = (MEMORY_CONFIG
 #ifdef SLI_SI917
-                                                  | SL_SI91X_EXT_FEAT_FRONT_END_SWITCH_PINS_ULP_GPIO_4_5_0
+                        | SL_SI91X_EXT_FEAT_FRONT_END_SWITCH_PINS_ULP_GPIO_4_5_0
 #endif
-                                                  ),
-                   .bt_feature_bit_map = 0,
-                   .ext_tcp_ip_feature_bit_map =
-                     (SL_SI91X_EXT_TCP_IP_WINDOW_DIV | SL_SI91X_CONFIG_FEAT_EXTENTION_VALID
-                      | SL_SI91X_EXT_TCP_IP_FEAT_SSL_THREE_SOCKETS | SL_SI91X_EXT_TCP_IP_WAIT_FOR_SOCKET_CLOSE),
-                   .ble_feature_bit_map     = 0,
-                   .ble_ext_feature_bit_map = 0,
-                   .config_feature_bit_map  = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP },
-  .ta_pool = { .tx_ratio_in_buffer_pool     = TX_POOL_RATIO,
-               .rx_ratio_in_buffer_pool     = RX_POOL_RATIO,
-               .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
+                    ),
+                    .bt_feature_bit_map = 0,
+                    .ext_tcp_ip_feature_bit_map =
+                        (SL_SI91X_EXT_TCP_IP_WINDOW_DIV | SL_SI91X_CONFIG_FEAT_EXTENTION_VALID
+                            | SL_SI91X_EXT_TCP_IP_FEAT_SSL_THREE_SOCKETS | SL_SI91X_EXT_TCP_IP_WAIT_FOR_SOCKET_CLOSE),
+                            .ble_feature_bit_map     = 0,
+                            .ble_ext_feature_bit_map = 0,
+                            .config_feature_bit_map  = SL_SI91X_FEAT_SLEEP_GPIO_SEL_BITMAP },
+                            .ta_pool = { .tx_ratio_in_buffer_pool     = TX_POOL_RATIO,
+                                .rx_ratio_in_buffer_pool     = RX_POOL_RATIO,
+                                .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
 };
 
 sl_net_wifi_ap_profile_t ap_net_config =
@@ -222,28 +222,28 @@ sl_net_wifi_ap_profile_t ap_net_config =
     };
 
 static sl_si91x_socket_config_t socket_config = {
-  TOTAL_SOCKETS,                   // Total sockets
-  TOTAL_TCP_SOCKETS,               // Total TCP sockets
-  TOTAL_UDP_SOCKETS,               // Total UDP sockets
-  TCP_TX_ONLY_SOCKETS,             // TCP TX only sockets
-  TCP_RX_ONLY_SOCKETS,             // TCP RX only sockets
-  UDP_TX_ONLY_SOCKETS,             // UDP TX only sockets
-  UDP_RX_ONLY_SOCKETS,             // UDP RX only sockets
-  TCP_RX_HIGH_PERFORMANCE_SOCKETS, // TCP RX high performance sockets
-  TCP_RX_WINDOW_SIZE_CAP,          // TCP RX window size
-  TCP_RX_WINDOW_DIV_FACTOR         // TCP RX window division factor
+    TOTAL_SOCKETS,                   // Total sockets
+    TOTAL_TCP_SOCKETS,               // Total TCP sockets
+    TOTAL_UDP_SOCKETS,               // Total UDP sockets
+    TCP_TX_ONLY_SOCKETS,             // TCP TX only sockets
+    TCP_RX_ONLY_SOCKETS,             // TCP RX only sockets
+    UDP_TX_ONLY_SOCKETS,             // UDP TX only sockets
+    UDP_RX_ONLY_SOCKETS,             // UDP RX only sockets
+    TCP_RX_HIGH_PERFORMANCE_SOCKETS, // TCP RX high performance sockets
+    TCP_RX_WINDOW_SIZE_CAP,          // TCP RX window size
+    TCP_RX_WINDOW_DIV_FACTOR         // TCP RX window division factor
 };
 
 const osThreadAttr_t wifi_per_normal_thread_attributes = {
-  .name       = "wifi_per_normal_app",
-  .attr_bits  = 0,
-  .cb_mem     = 0,
-  .cb_size    = 0,
-  .stack_mem  = 0,
-  .stack_size = 3072,
-  .priority   = osPriorityLow,
-  .tz_module  = 0,
-  .reserved   = 0,
+    .name       = "wifi_per_normal_app",
+    .attr_bits  = 0,
+    .cb_mem     = 0,
+    .cb_size    = 0,
+    .stack_mem  = 0,
+    .stack_size = 3072,
+    .priority   = osPriorityLow,
+    .tz_module  = 0,
+    .reserved   = 0,
 };
 #endif
 
@@ -381,12 +381,13 @@ void data_callback(uint32_t sock_no, uint8_t *buffer, uint32_t length)
   bytes_read += length;
   now = osKernelGetTickCount();
 #if 0
-  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > app_timeout)) {
+  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > app_timeout))
 #else
-  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > (app_timeout*tick_count_s))) {
+    if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > (app_timeout*tick_count_s)))
 #endif
-    has_data_received = 1;
-  }
+    {
+      has_data_received = 1;
+    }
 }
 
 #ifdef SLI_SI91X_MCU_INTERFACE
@@ -681,11 +682,11 @@ void send_data_to_tcp_server(void)
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
   if (wifi_mode == wifi_sta_mode)
   {
-      memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
+    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
   }
   else
   {
-      memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
+    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
   }
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
@@ -716,12 +717,12 @@ void send_data_to_tcp_server(void)
 #if 0
     if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (app_timeout*tick_count_s))
+      if ((now - start) > (app_timeout*tick_count_s))
 #endif
-    {
-      printf("\r\nTime Out: %ld\r\n", (now - start));
-      break;
-    }
+      {
+        printf("\r\nTime Out: %ld\r\n", (now - start));
+        break;
+      }
     if (sent_bytes < 0) {
       fail++;
     } else {
@@ -800,7 +801,7 @@ void receive_data_from_tcp_client(void)
     {
       now = osKernelGetTickCount();
       if ((now - start) > (app_timeout*tick_count_s)) {
-          has_data_received = 1;
+        has_data_received = 1;
       }
     }
     osThreadYield();
@@ -877,12 +878,12 @@ void receive_data_from_tcp_client(void)
 #if 0
     if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (app_timeout*tick_count_s))
+      if ((now - start) > (app_timeout*tick_count_s))
 #endif
-    {
-      printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
-      break;
-    }
+      {
+        printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
+        break;
+      }
   }
   printf("\r\nTCP_RX Throughput test finished\r\n");
   printf("\r\nTotal bytes received : %ld\r\n", total_bytes_received);
@@ -912,11 +913,11 @@ void send_data_to_udp_server(void)
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
   if (wifi_mode == wifi_sta_mode)
   {
-      memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
+    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
   }
   else
   {
-      memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
+    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
   }
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
@@ -932,17 +933,17 @@ void send_data_to_udp_server(void)
   start = osKernelGetTickCount();
   while (total_bytes_sent < BYTES_TO_SEND) {
     sent_bytes =
-      sendto(client_socket, data_buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr *)&server_address, socket_length);
+        sendto(client_socket, data_buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr *)&server_address, socket_length);
     now = osKernelGetTickCount();
 #if 0
     if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (app_timeout*tick_count_s))
+      if ((now - start) > (app_timeout*tick_count_s))
 #endif
-    {
-      printf("\r\nTime Out: %ld\r\n", (now - start));
-      break;
-    }
+      {
+        printf("\r\nTime Out: %ld\r\n", (now - start));
+        break;
+      }
     if (sent_bytes < 0) {
       fail++;
     } else {
@@ -993,7 +994,7 @@ void receive_data_from_udp_client(void)
     {
       now = osKernelGetTickCount();
       if ((now - start) > (app_timeout*tick_count_s)) {
-          has_data_received = 1;
+        has_data_received = 1;
       }
     }
     osThreadYield();
@@ -1040,12 +1041,12 @@ void receive_data_from_udp_client(void)
 #if 0
     if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (app_timeout*tick_count_s))
+      if ((now - start) > (app_timeout*tick_count_s))
 #endif
-    {
-      printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
-      break;
-    }
+      {
+        printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
+        break;
+      }
   }
   printf("\r\nUDP_RX Throughput test finished\r\n");
   printf("\r\nTotal bytes received : %ld\r\n", total_bytes_received);
@@ -1104,11 +1105,11 @@ void receive_data_from_tls_server(void)
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
   if (wifi_mode == wifi_sta_mode)
   {
-      memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
+    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
   }
   else
   {
-      memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
+    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
   }
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
@@ -1165,11 +1166,11 @@ void receive_data_from_tls_server(void)
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
   if (wifi_mode == wifi_sta_mode)
   {
-      memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
+    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
   }
   else
   {
-      memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
+    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
   }
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
@@ -1199,12 +1200,12 @@ void receive_data_from_tls_server(void)
 #if 0
     if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (app_timeout*tick_count_s))
+      if ((now - start) > (app_timeout*tick_count_s))
 #endif
-    {
-      printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
-      break;
-    }
+      {
+        printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
+        break;
+      }
   }
   printf("\r\nTLS_RX Throughput test finished\r\n");
   printf("\r\nTotal bytes received : %ld\r\n", total_bytes_received);
@@ -1243,11 +1244,11 @@ void send_data_to_tls_server(void)
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
   if (wifi_mode == wifi_sta_mode)
   {
-      memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
+    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
   }
   else
   {
-      memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
+    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
   }
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
@@ -1266,7 +1267,8 @@ void send_data_to_tls_server(void)
   int sent_bytes = 0;
   uint32_t fail  = 0;
   uint32_t pass  = 0;
-  while (total_bytes_sent < BYTES_TO_SEND) {
+  while (total_bytes_sent < BYTES_TO_SEND)
+  {
     sent_bytes = send(client_socket, data_buffer, TLS_BUFFER_SIZE, 0);
     now        = osKernelGetTickCount();
     if (sent_bytes > 0)
@@ -1275,12 +1277,12 @@ void send_data_to_tls_server(void)
 #if 0
     if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (app_timeout*tick_count_s))
+      if ((now - start) > (app_timeout*tick_count_s))
 #endif
-    {
-      printf("\r\nTime Out: %ld\r\n", (now - start));
-      break;
-    }
+      {
+        printf("\r\nTime Out: %ld\r\n", (now - start));
+        break;
+      }
     if (sent_bytes < 0) {
       fail++;
     } else {
