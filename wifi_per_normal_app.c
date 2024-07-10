@@ -77,7 +77,7 @@ uint32_t tick_count_s = 1;
 
 #define BYTES_TO_SEND    (1 << 29)              //512MB
 #define BYTES_TO_RECEIVE (1 << 28)              //256MB
-#define TEST_TIMEOUT     (30000)                //30sec
+#define DEFAULT_TIMEOUT  (30000)   //30sec
 
 #define SL_HIGH_PERFORMANCE_SOCKET BIT(7)
 
@@ -126,7 +126,7 @@ uint32_t tick_count_s = 1;
  *               Variable Definitions
  ******************************************************/
 
-
+#if 1
 static sl_wifi_device_configuration_t sta_throughput_configuration = {
   .boot_option = LOAD_NWP_FW,
   .mac_address = NULL,
@@ -187,7 +187,6 @@ static sl_wifi_device_configuration_t softap_throughput_configuration = {
                .global_ratio_in_buffer_pool = GLOBAL_POOL_RATIO }
 };
 
-
 sl_net_wifi_ap_profile_t ap_net_config =
     {                                       \
         .config = { \
@@ -246,6 +245,8 @@ const osThreadAttr_t wifi_per_normal_thread_attributes = {
   .tz_module  = 0,
   .reserved   = 0,
 };
+#endif
+
 #if 0
 uint8_t data_buffer[BUFFER_SIZE];
 #else
@@ -260,9 +261,20 @@ uint8_t wifi_mode = 0;            //0:sta mode, 1:ap mode
 uint8_t troughput_type = 2;     //0:udp_tx, 1:, udp_rx, 2: tcp_tx, 3: tcp_rx
 uint16_t ap_channel = SL_WIFI_AUTO_CHANNEL; // assign ap channel
 uint8_t set_region = US;
+uint32_t app_timeout = DEFAULT_TIMEOUT;
 char server_ip_sta[16] = {0};
 
 unsigned int max_data_buffer_size;
+
+
+volatile uint8_t wifi_per_terminate = 0; // add end signal
+volatile uint8_t has_data_received = 0;
+volatile uint32_t bytes_read       = 0;
+uint32_t start                     = 0;
+uint32_t now                       = 0;
+uint8_t first_data_frame           = 1;
+
+volatile uint8_t has_client_connected = 0;
 
 /******************************************************
  *               Function Declarations
@@ -281,65 +293,37 @@ static void measure_and_print_throughput(uint32_t total_num_of_bytes, uint32_t t
 #ifdef SLI_SI91X_MCU_INTERFACE
 void switch_m4_frequency(void);
 #endif
+void print_region_set(void);
+void print_wifi_mode(void);
+void print_throughput_type(void);
 
 /******************************************************
  *               Function Definitions
  ******************************************************/
+sl_status_t wifi_per_normal_stop_command_handler( console_args_t* args )
+{
+  UNUSED_PARAMETER(args);
+  sl_status_t status = SL_STATUS_OK;
+  wifi_per_terminate = 1;
+  return status;
+}
+
 
 sl_status_t wifi_per_normal_command_handler( console_args_t* args )
 {
+  wifi_per_terminate = 0;
   sl_status_t status = SL_STATUS_OK;
-
   static wifi_per_normal_config_t console_config ={0};
   console_config.ap_sta_mode = (uint8_t)GET_COMMAND_ARG(args, 0);
   console_config.tcp_udp_x_tx_rx = (uint8_t)GET_COMMAND_ARG(args, 1);
   console_config.channel = (uint16_t)GET_OPTIONAL_COMMAND_ARG(args, 2, SL_WIFI_AUTO_CHANNEL, uint16_t);
   console_config.str_ip  = GET_OPTIONAL_COMMAND_ARG(args, 3, NULL, char*);
-  console_config.region  = GET_OPTIONAL_COMMAND_ARG(args, 4, US, uint8_t);
+  console_config.timeout_sec  = GET_OPTIONAL_COMMAND_ARG(args, 4, (DEFAULT_TIMEOUT/1000), uint16_t);
+  console_config.region  = GET_OPTIONAL_COMMAND_ARG(args, 5, US, uint8_t);
 
   wifi_per_normal_start(&console_config);
 
   return status;
-}
-
-void print_region_set(void)
-{
-  printf("Set region: ");
-  switch(set_region)
-  {
-    case DEFAULT_REGION: printf("Factory default region "); break;///< Factory default region
-    case US:             printf("United States "); break;///< United States
-    case EU:             printf("European Union "); break;///< European Union
-    case JP:             printf("Japan "); break;///< Japan
-    case WORLD_DOMAIN:   printf("World wide domain "); break;///< World wide domain
-    case KR:             printf("Korea "); break;///< Korea
-    case SG:             printf("Singapore (not currently supported) "); break;///< Singapore (not currently supported)
-    default:             printf("Error region "); break;
-  }
-}
-
-void print_wifi_mode(void)
-{
-  switch(wifi_mode)
-  {
-    case wifi_sta_mode: printf("wifi sta mode "); break;
-    case wifi_ap_mode:  printf("wifi ap mode "); break;
-    default: printf("error wifi device mode ");
-  }
-}
-
-void print_throughput_type(void)
-{
-  switch(troughput_type)
-  {
-    case udp_tx: printf("udp_tx "); break;
-    case udp_rx: printf("udp_rx "); break;
-    case tcp_tx: printf("tcp_tx "); break;
-    case tcp_rx: printf("tcp_rx "); break;
-    case tls_tx: printf("tls_tx "); break;
-    case tls_rx: printf("tls_rx "); break;
-    default: printf("error troughput type ");
-  }
 }
 
 void wifi_per_normal_start(void *args)
@@ -351,12 +335,14 @@ void wifi_per_normal_start(void *args)
     troughput_type = config.tcp_udp_x_tx_rx;
     ap_channel = config.channel;
     set_region = config.region;
+    app_timeout = config.timeout_sec * 1000;
   }
   print_wifi_mode();
   printf(" ; ");
   print_throughput_type();
   printf(" ; ");
   print_region_set();
+  printf(" ; Timeout: %lu sec(s) ", (app_timeout/1000));
   printf("\r\n");
   osThreadNew((osThreadFunc_t)application_start, (wifi_per_normal_config_t*) args, &wifi_per_normal_thread_attributes);
 }
@@ -369,13 +355,6 @@ static void measure_and_print_throughput(uint32_t total_num_of_bytes, uint32_t t
   printf("\r\nThroughput achieved @ %0.02f Mbps in %0.03f sec successfully\r\n", result, duration);
 }
 
-volatile uint8_t has_data_received = 0;
-volatile uint32_t bytes_read       = 0;
-uint32_t start                     = 0;
-uint32_t now                       = 0;
-uint8_t first_data_frame           = 1;
-
-volatile uint8_t has_client_connected = 0;
 
 void data_callback(uint32_t sock_no, uint8_t *buffer, uint32_t length)
 {
@@ -402,9 +381,9 @@ void data_callback(uint32_t sock_no, uint8_t *buffer, uint32_t length)
   bytes_read += length;
   now = osKernelGetTickCount();
 #if 0
-  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > TEST_TIMEOUT)) {
+  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > app_timeout)) {
 #else
-  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > (TEST_TIMEOUT*tick_count_s))) {
+  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > (app_timeout*tick_count_s))) {
 #endif
     has_data_received = 1;
   }
@@ -433,139 +412,139 @@ static void application_start(void *argument)
 
   wifi_per_normal_config_t config = *(wifi_per_normal_config_t*) argument;
 
-if (wifi_mode == wifi_sta_mode)
-{
-  memset(server_ip_sta, 0, IP_ADDR_MAX_LEN+1);
-  if(config.str_ip == NULL)
+  if (wifi_mode == wifi_sta_mode)
   {
-    memcpy(server_ip_sta, STA_IPERF_SERVER_IP, MIN((strlen(STA_IPERF_SERVER_IP)+1), (IP_ADDR_MAX_LEN+1)));
-  }
-  else
-  {
-    memcpy(server_ip_sta, config.str_ip, MIN((strlen(config.str_ip)+1), (IP_ADDR_MAX_LEN+1)));
-  }
+    memset(server_ip_sta, 0, IP_ADDR_MAX_LEN+1);
+    if(config.str_ip == NULL)
+    {
+      memcpy(server_ip_sta, STA_IPERF_SERVER_IP, MIN((strlen(STA_IPERF_SERVER_IP)+1), (IP_ADDR_MAX_LEN+1)));
+    }
+    else
+    {
+      memcpy(server_ip_sta, config.str_ip, MIN((strlen(config.str_ip)+1), (IP_ADDR_MAX_LEN+1)));
+    }
 
-  if(set_region != US)
-  {
-    sta_throughput_configuration.region_code = set_region;
-  }
+    if(set_region != US)
+    {
+      sta_throughput_configuration.region_code = set_region;
+    }
 
-  printf("STA mode, server IP %s\r\n", server_ip_sta);
-  status = sl_net_init(SL_NET_WIFI_CLIENT_INTERFACE, &sta_throughput_configuration, NULL, NULL);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to start Wi-Fi Client interface: 0x%lx\r\n", status);
-    return;
-  }
-  printf("\r\nWi-Fi client interface init success\r\n");
+    printf("STA mode, server IP %s\r\n", server_ip_sta);
+    status = sl_net_init(SL_NET_WIFI_CLIENT_INTERFACE, &sta_throughput_configuration, NULL, NULL);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to start Wi-Fi Client interface: 0x%lx\r\n", status);
+      return;
+    }
+    printf("\r\nWi-Fi client interface init success\r\n");
 
-  status = sl_wifi_get_mac_address(SL_WIFI_CLIENT_INTERFACE, &mac_addr);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to get mac address: 0x%lx\r\n", status);
-    return;
-  }
-  printf("\r\nDevice MAC address: %x:%x:%x:%x:%x:%x\r\n",
-         mac_addr.octet[0],
-         mac_addr.octet[1],
-         mac_addr.octet[2],
-         mac_addr.octet[3],
-         mac_addr.octet[4],
-         mac_addr.octet[5]);
+    status = sl_wifi_get_mac_address(SL_WIFI_CLIENT_INTERFACE, &mac_addr);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to get mac address: 0x%lx\r\n", status);
+      return;
+    }
+    printf("\r\nDevice MAC address: %x:%x:%x:%x:%x:%x\r\n",
+           mac_addr.octet[0],
+           mac_addr.octet[1],
+           mac_addr.octet[2],
+           mac_addr.octet[3],
+           mac_addr.octet[4],
+           mac_addr.octet[5]);
 
-  status = sl_wifi_get_firmware_version(&firmware_version);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to fetch firmware version: 0x%lx\r\n", status);
-    return;
-  } else {
-    print_firmware_version(&firmware_version);
-  }
+    status = sl_wifi_get_firmware_version(&firmware_version);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to fetch firmware version: 0x%lx\r\n", status);
+      return;
+    } else {
+      print_firmware_version(&firmware_version);
+    }
 
-  status = sl_net_up(SL_NET_WIFI_CLIENT_INTERFACE, SL_NET_DEFAULT_WIFI_CLIENT_PROFILE_ID);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to connect to AP: 0x%lx\r\n", status);
-    return;
-  }
-  printf("\r\nWi-Fi client connected\r\n");
+    status = sl_net_up(SL_NET_WIFI_CLIENT_INTERFACE, SL_NET_DEFAULT_WIFI_CLIENT_PROFILE_ID);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to connect to AP: 0x%lx\r\n", status);
+      return;
+    }
+    printf("\r\nWi-Fi client connected\r\n");
 
 #ifdef SLI_SI91X_MCU_INTERFACE
-  switch_m4_frequency();
-  SysTick_Config(SystemCoreClock / (1000 * tick_count_s));
+    switch_m4_frequency();
+    SysTick_Config(SystemCoreClock / (1000 * tick_count_s));
 #endif
 
-  status = sl_net_get_profile(SL_NET_WIFI_CLIENT_INTERFACE, SL_NET_DEFAULT_WIFI_CLIENT_PROFILE_ID, &profile);
-  if (status != SL_STATUS_OK) {
-    printf("Failed to get client profile: 0x%lx\r\n", status);
-    return;
-  }
-  printf("\r\nSuccess to get client profile\r\n");
-}
-else
-{
-  if(set_region != US)
-  {
-    softap_throughput_configuration.region_code = set_region;
-  }
-
-  printf("AP mode\r\n");
-
-  status = sl_net_init(SL_NET_WIFI_AP_INTERFACE, &softap_throughput_configuration, NULL, NULL);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to start Wi-Fi AP interface: 0x%lx\r\n", status);
-    return;
-  }
-
-  if(troughput_type == tcp_tx || troughput_type == udp_tx)
-  {
-    sl_wifi_set_callback(SL_WIFI_CLIENT_CONNECTED_EVENTS, ap_connected_event_handler, NULL);
-    sl_wifi_set_callback(SL_WIFI_CLIENT_DISCONNECTED_EVENTS, ap_disconnected_event_handler, NULL);
-  }
-  printf("\r\nWi-Fi AP interface init Success");
-
-  status = sl_wifi_get_firmware_version(&firmware_version);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to fetch firmware version: 0x%lx\r\n", status);
-    return;
-  } else {
-    print_firmware_version(&firmware_version);
-  }
-
-  //! XXX ap modify
-  if(ap_channel != SL_WIFI_AUTO_CHANNEL)
-  {
-    ap_net_config.config.channel.channel = ap_channel;
-    printf("AP channel assigned: %u\r\n",ap_channel);
-    status = sl_net_set_profile(SL_NET_WIFI_AP_INTERFACE, SL_NET_PROFILE_ID_1, &ap_net_config);
-    status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_PROFILE_ID_1);
+    status = sl_net_get_profile(SL_NET_WIFI_CLIENT_INTERFACE, SL_NET_DEFAULT_WIFI_CLIENT_PROFILE_ID, &profile);
+    if (status != SL_STATUS_OK) {
+      printf("Failed to get client profile: 0x%lx\r\n", status);
+      return;
+    }
+    printf("\r\nSuccess to get client profile\r\n");
   }
   else
   {
-    printf("AP auto channel\r\n");
-    status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_DEFAULT_WIFI_AP_PROFILE_ID);
-  }
-  if (status != SL_STATUS_OK) {
-    printf("\r\nFailed to bring Wi-Fi AP interface up: 0x%lx\r\n", status);
-    return;
-  }
-  printf("\r\nAP started\r\n");
+    if(set_region != US)
+    {
+      softap_throughput_configuration.region_code = set_region;
+    }
+
+    printf("AP mode\r\n");
+
+    status = sl_net_init(SL_NET_WIFI_AP_INTERFACE, &softap_throughput_configuration, NULL, NULL);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to start Wi-Fi AP interface: 0x%lx\r\n", status);
+      return;
+    }
+
+    if(troughput_type == tcp_tx || troughput_type == udp_tx)
+    {
+      sl_wifi_set_callback(SL_WIFI_CLIENT_CONNECTED_EVENTS, ap_connected_event_handler, NULL);
+      sl_wifi_set_callback(SL_WIFI_CLIENT_DISCONNECTED_EVENTS, ap_disconnected_event_handler, NULL);
+    }
+    printf("\r\nWi-Fi AP interface init Success");
+
+    status = sl_wifi_get_firmware_version(&firmware_version);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to fetch firmware version: 0x%lx\r\n", status);
+      return;
+    } else {
+      print_firmware_version(&firmware_version);
+    }
+
+    //! XXX ap modify
+    if(ap_channel != SL_WIFI_AUTO_CHANNEL)
+    {
+      ap_net_config.config.channel.channel = ap_channel;
+      printf("AP channel assigned: %u\r\n",ap_channel);
+      status = sl_net_set_profile(SL_NET_WIFI_AP_INTERFACE, SL_NET_PROFILE_ID_1, &ap_net_config);
+      status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_PROFILE_ID_1);
+    }
+    else
+    {
+      printf("AP auto channel\r\n");
+      status = sl_net_up(SL_NET_WIFI_AP_INTERFACE, SL_NET_DEFAULT_WIFI_AP_PROFILE_ID);
+    }
+    if (status != SL_STATUS_OK) {
+      printf("\r\nFailed to bring Wi-Fi AP interface up: 0x%lx\r\n", status);
+      return;
+    }
+    printf("\r\nAP started\r\n");
 #if 0
-  while (1) {
+    while (1) {
 #if defined(SL_CATALOG_POWER_MANAGER_PRESENT)
-    // Let the CPU go to sleep if the system allows it.
-    sl_power_manager_sleep();
+      // Let the CPU go to sleep if the system allows it.
+      sl_power_manager_sleep();
 #else
-    osDelay(osWaitForever);
+      osDelay(osWaitForever);
+#endif
+    }
 #endif
   }
-#endif
-}
 
   ip_address.type = SL_IPV4;
   if (wifi_mode == wifi_sta_mode)
   {
-  memcpy(&ip_address.ip.v4.bytes, &profile.ip.ip.v4.ip_address.bytes, sizeof(sl_ipv4_address_t));
+    memcpy(&ip_address.ip.v4.bytes, &profile.ip.ip.v4.ip_address.bytes, sizeof(sl_ipv4_address_t));
   }
   else
   {
-      sl_net_inet_addr(SOFTAP_LOCAL_IP_ADDRESS, (uint32_t *)&ip_address.ip.v4);
+    sl_net_inet_addr(SOFTAP_LOCAL_IP_ADDRESS, (uint32_t *)&ip_address.ip.v4);
   }
 
   print_sl_ip_address(&ip_address);
@@ -576,53 +555,53 @@ else
     {
       while (!has_client_connected)
       {
-          osDelay(10);
+        osDelay(10);
       }
       osDelay(MAX_DELAY_FOR_SOFTAP_TX_TEST*1000);
     }
   }
 #if 0
- if ((troughput_type == tls_rx) || (troughput_type == tls_tx))
- {
-  // Load SSL CA certificate
-  status =
-    sl_net_set_credential(SL_NET_TLS_SERVER_CREDENTIAL_ID(0), SL_NET_SIGNING_CERTIFICATE, cacert, sizeof(cacert) - 1);
-  if (status != SL_STATUS_OK) {
-    printf("\r\nLoading TLS CA certificate in to FLASH Failed, Error Code : 0x%lX\r\n", status);
-    return;
+  if ((troughput_type == tls_rx) || (troughput_type == tls_tx))
+  {
+    // Load SSL CA certificate
+    status =
+        sl_net_set_credential(SL_NET_TLS_SERVER_CREDENTIAL_ID(0), SL_NET_SIGNING_CERTIFICATE, cacert, sizeof(cacert) - 1);
+    if (status != SL_STATUS_OK) {
+      printf("\r\nLoading TLS CA certificate in to FLASH Failed, Error Code : 0x%lX\r\n", status);
+      return;
+    }
+    printf("\r\nLoad SSL CA certificate at index %d Success\r\n", 0);
   }
-  printf("\r\nLoad SSL CA certificate at index %d Success\r\n", 0);
- }
 #endif
 
   if (wifi_mode == wifi_sta_mode)
   {
-      tick_count_s = 10;
+    tick_count_s = 10;
   }
   else
   {
-      if(troughput_type == udp_tx || troughput_type == tcp_tx)
-      {
-          tick_count_s = 1;
-      }
-      else
-      {
-          tick_count_s = 10;
-      }
+    if(troughput_type == udp_tx || troughput_type == tcp_tx)
+    {
+      tick_count_s = 1;
+    }
+    else
+    {
+      tick_count_s = 10;
+    }
   }
 
   printf("\r\ntick_count_s=%ld\r\n", tick_count_s);
   if(troughput_type == udp_tx || troughput_type == udp_rx)
   {
-      max_data_buffer_size = UDP_BUFFER_SIZE;
+    max_data_buffer_size = UDP_BUFFER_SIZE;
   }
   else if(troughput_type == tcp_tx || troughput_type == tcp_rx)
   {
-      max_data_buffer_size = TCP_BUFFER_SIZE;
+    max_data_buffer_size = TCP_BUFFER_SIZE;
   }
   else if(troughput_type == tls_tx || troughput_type == tls_rx)
   {
-      max_data_buffer_size = TLS_BUFFER_SIZE;
+    max_data_buffer_size = TLS_BUFFER_SIZE;
   }
 
   for (size_t i = 0; i < max_data_buffer_size; i++)
@@ -735,10 +714,11 @@ void send_data_to_tcp_server(void)
     if (sent_bytes > 0)
       total_bytes_sent = total_bytes_sent + sent_bytes;
 #if 0
-    if ((now - start) > TEST_TIMEOUT) {
+    if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+    if ((now - start) > (app_timeout*tick_count_s))
 #endif
+    {
       printf("\r\nTime Out: %ld\r\n", (now - start));
       break;
     }
@@ -819,7 +799,7 @@ void receive_data_from_tcp_client(void)
     if (wifi_mode == wifi_ap_mode)
     {
       now = osKernelGetTickCount();
-      if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+      if ((now - start) > (app_timeout*tick_count_s)) {
           has_data_received = 1;
       }
     }
@@ -895,10 +875,11 @@ void receive_data_from_tcp_client(void)
     now                  = osKernelGetTickCount();
 
 #if 0
-    if ((now - start) > TEST_TIMEOUT) {
+    if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+    if ((now - start) > (app_timeout*tick_count_s))
 #endif
+    {
       printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
       break;
     }
@@ -954,10 +935,11 @@ void send_data_to_udp_server(void)
       sendto(client_socket, data_buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr *)&server_address, socket_length);
     now = osKernelGetTickCount();
 #if 0
-    if ((now - start) > TEST_TIMEOUT) {
+    if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+    if ((now - start) > (app_timeout*tick_count_s))
 #endif
+    {
       printf("\r\nTime Out: %ld\r\n", (now - start));
       break;
     }
@@ -1010,7 +992,7 @@ void receive_data_from_udp_client(void)
     if (wifi_mode == wifi_ap_mode)
     {
       now = osKernelGetTickCount();
-      if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+      if ((now - start) > (app_timeout*tick_count_s)) {
           has_data_received = 1;
       }
     }
@@ -1056,10 +1038,11 @@ void receive_data_from_udp_client(void)
     total_bytes_received = total_bytes_received + read_bytes;
     now                  = osKernelGetTickCount();
 #if 0
-    if ((now - start) > TEST_TIMEOUT) {
+    if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+    if ((now - start) > (app_timeout*tick_count_s))
 #endif
+    {
       printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
       break;
     }
@@ -1214,10 +1197,11 @@ void receive_data_from_tls_server(void)
     now                  = osKernelGetTickCount();
 
 #if 0
-    if ((now - start) > TEST_TIMEOUT) {
+    if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+    if ((now - start) > (app_timeout*tick_count_s))
 #endif
+    {
       printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
       break;
     }
@@ -1289,10 +1273,11 @@ void send_data_to_tls_server(void)
       total_bytes_sent = total_bytes_sent + sent_bytes;
 
 #if 0
-    if ((now - start) > TEST_TIMEOUT) {
+    if ((now - start) > app_timeout)
 #else
-    if ((now - start) > (TEST_TIMEOUT*tick_count_s)) {
+    if ((now - start) > (app_timeout*tick_count_s))
 #endif
+    {
       printf("\r\nTime Out: %ld\r\n", (now - start));
       break;
     }
@@ -1309,4 +1294,44 @@ void send_data_to_tls_server(void)
   measure_and_print_throughput(total_bytes_sent, (now - start));
 
   close(client_socket);
+}
+
+void print_region_set(void)
+{
+  printf("Region: ");
+  switch(set_region)
+  {
+    case DEFAULT_REGION: printf("Factory default region "); break;///< Factory default region
+    case US:             printf("United States "); break;///< United States
+    case EU:             printf("European Union "); break;///< European Union
+    case JP:             printf("Japan "); break;///< Japan
+    case WORLD_DOMAIN:   printf("World wide domain "); break;///< World wide domain
+    case KR:             printf("Korea "); break;///< Korea
+    case SG:             printf("Singapore (not currently supported) "); break;///< Singapore (not currently supported)
+    default:             printf("Error region "); break;
+  }
+}
+
+void print_wifi_mode(void)
+{
+  switch(wifi_mode)
+  {
+    case wifi_sta_mode: printf("WiFi STA mode "); break;
+    case wifi_ap_mode:  printf("WiFi AP mode "); break;
+    default: printf("error wifi device mode ");
+  }
+}
+
+void print_throughput_type(void)
+{
+  switch(troughput_type)
+  {
+    case udp_tx: printf("UDP_TX "); break;
+    case udp_rx: printf("UDP_RX "); break;
+    case tcp_tx: printf("TCP_TX "); break;
+    case tcp_rx: printf("TCP_RX "); break;
+    case tls_tx: printf("TLS_TX "); break;
+    case tls_rx: printf("TLS_RX "); break;
+    default: printf("error troughput type ");
+  }
 }

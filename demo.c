@@ -33,9 +33,9 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242802"
-#define VERSION_GOAL        "add region code argument"
-#define MODIFY_START_DATE   "2024.07.09"
+#define AMPAK_CLI_VERSION   "ve01.02.242803"
+#define VERSION_GOAL        "add timeout(s) argument"
+#define MODIFY_START_DATE   "2024.07.10"
 
 /******************************************************
  *                   Enumerations
