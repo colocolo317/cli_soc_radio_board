@@ -33,8 +33,8 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242804"
-#define VERSION_GOAL        "add wifi per nomarl stop command"
+#define AMPAK_CLI_VERSION   "ve01.02.242806"
+#define VERSION_GOAL        "add tx rx max length to 64GB"
 #define MODIFY_START_DATE   "2024.07.10"
 
 /******************************************************

@@ -75,8 +75,8 @@ uint32_t tick_count_s = 10;
 uint32_t tick_count_s = 1;
 #endif
 
-#define BYTES_TO_SEND    (1 << 29)              //512MB
-#define BYTES_TO_RECEIVE (1 << 28)              //256MB
+#define BYTES_TO_SEND    ((uint64_t) 0x1000000000) // 64GB <-//(1 << 29) //512MB
+#define BYTES_TO_RECEIVE ((uint64_t) 0x1000000000) // 64GB <-//(1 << 28) //256MB
 #define DEFAULT_TIMEOUT  (30000)   //30sec
 
 #define SL_HIGH_PERFORMANCE_SOCKET BIT(7)
@@ -269,7 +269,7 @@ unsigned int max_data_buffer_size;
 
 volatile uint8_t wifi_per_terminate = 0; // add end signal
 volatile uint8_t has_data_received = 0;
-volatile uint32_t bytes_read       = 0;
+volatile uint64_t bytes_read       = 0;
 uint32_t start                     = 0;
 uint32_t now                       = 0;
 uint8_t first_data_frame           = 1;
@@ -289,7 +289,7 @@ void send_data_to_udp_server(void);
 void receive_data_from_tls_server(void);
 void send_data_to_tls_server(void);
 static void application_start(void *argument);
-static void measure_and_print_throughput(uint32_t total_num_of_bytes, uint32_t test_timeout);
+static void measure_and_print_throughput(uint64_t total_num_of_bytes, uint32_t test_timeout);
 #ifdef SLI_SI91X_MCU_INTERFACE
 void switch_m4_frequency(void);
 #endif
@@ -312,6 +312,7 @@ sl_status_t wifi_per_normal_stop_command_handler( console_args_t* args )
 sl_status_t wifi_per_normal_command_handler( console_args_t* args )
 {
   wifi_per_terminate = 0;
+  bytes_read = 0;
   sl_status_t status = SL_STATUS_OK;
   static wifi_per_normal_config_t console_config ={0};
   console_config.ap_sta_mode = (uint8_t)GET_COMMAND_ARG(args, 0);
@@ -347,7 +348,7 @@ void wifi_per_normal_start(void *args)
   osThreadNew((osThreadFunc_t)application_start, (wifi_per_normal_config_t*) args, &wifi_per_normal_thread_attributes);
 }
 
-static void measure_and_print_throughput(uint32_t total_num_of_bytes, uint32_t test_timeout)
+static void measure_and_print_throughput(uint64_t total_num_of_bytes, uint32_t test_timeout)
 {
   float duration = ((test_timeout) / 1000) / tick_count_s; // ms to sec
   float result   = (total_num_of_bytes * 8) / duration;    // bytes to bits
@@ -667,7 +668,7 @@ static sl_status_t ap_disconnected_event_handler(sl_wifi_event_t event, void *da
 void send_data_to_tcp_server(void)
 {
   int client_socket                 = -1;
-  uint32_t total_bytes_sent         = 0;
+  uint64_t total_bytes_sent         = 0;
   int socket_return_value           = 0;
   int sent_bytes                    = 1;
   uint32_t fail                     = 0;
@@ -709,7 +710,8 @@ void send_data_to_tcp_server(void)
 
   printf("\r\nTCP_TX Throughput test start\r\n");
   start = osKernelGetTickCount();
-  while (total_bytes_sent < BYTES_TO_SEND) {
+  while (total_bytes_sent < BYTES_TO_SEND)
+  {
     sent_bytes = send(client_socket, data_buffer, TCP_BUFFER_SIZE, 0);
     now        = osKernelGetTickCount();
     if (sent_bytes > 0)
@@ -730,7 +732,7 @@ void send_data_to_tcp_server(void)
     }
   }
   printf("\r\nTCP_TX Throughput test finished\r\n");
-  printf("\r\nTotal bytes sent : %ld\r\n", total_bytes_sent);
+  printf("\r\nTotal bytes sent : %llu\r\n", total_bytes_sent);
   printf("\r\nSend fail count : %ld, Send pass count : %ld\r\n", fail, pass);
 
   measure_and_print_throughput(total_bytes_sent, (now - start));
@@ -810,7 +812,7 @@ void receive_data_from_tcp_client(void)
   now = osKernelGetTickCount();
 
   printf("\r\nTCP_RX Throughput test finished\r\n");
-  printf("\r\nTotal bytes received : %ld\r\n", bytes_read);
+  printf("\r\nTotal bytes received : %llu\r\n", bytes_read);
 
   close(server_socket);
   close(client_socket);
@@ -899,7 +901,7 @@ void receive_data_from_tcp_client(void)
 void send_data_to_udp_server(void)
 {
   int client_socket                 = -1;
-  uint32_t total_bytes_sent         = 0;
+  uint64_t total_bytes_sent         = 0;
   struct sockaddr_in server_address = { 0 };
   socklen_t socket_length           = sizeof(struct sockaddr_in);
   int sent_bytes                    = 1;
@@ -953,7 +955,7 @@ void send_data_to_udp_server(void)
       total_bytes_sent = total_bytes_sent + sent_bytes;
   }
   printf("\r\nUDP_TX Throughput test finished\r\n");
-  printf("\r\nTotal bytes sent : %ld\r\n", total_bytes_sent);
+  printf("\r\nTotal bytes sent : %llu\r\n", total_bytes_sent);
   printf("\r\nSend fail count : %ld, Send pass count : %ld\r\n", fail, pass);
 
   measure_and_print_throughput(total_bytes_sent, (now - start));
@@ -1001,7 +1003,7 @@ void receive_data_from_udp_client(void)
   }
   now = osKernelGetTickCount();
   printf("\r\nUDP_RX Async Throughput test finished\r\n");
-  printf("\r\nTotal bytes received : %ld\r\n", bytes_read);
+  printf("\r\nTotal bytes received : %llu\r\n", bytes_read);
 
   measure_and_print_throughput(bytes_read, (now - start));
 
@@ -1129,7 +1131,7 @@ void receive_data_from_tls_server(void)
   now = osKernelGetTickCount();
 
   printf("\r\nTCP_RX Throughput test finished\r\n");
-  printf("\r\nTotal bytes received : %ld\r\n", bytes_read);
+  printf("\r\nTotal bytes received : %llu\r\n", bytes_read);
 
   close(client_socket);
   measure_and_print_throughput(bytes_read, (now - start));
@@ -1220,7 +1222,7 @@ void send_data_to_tls_server(void)
 {
   int client_socket                 = -1;
   int socket_return_value           = 0;
-  uint32_t total_bytes_sent         = 0;
+  uint64_t total_bytes_sent         = 0;
   struct sockaddr_in server_address = { 0 };
   socklen_t socket_length           = sizeof(struct sockaddr_in);
   char IPERF_SERVER_IP[16];
@@ -1290,7 +1292,7 @@ void send_data_to_tls_server(void)
     }
   }
   printf("\r\nTLS_TX Throughput test finished\r\n");
-  printf("\r\nTotal bytes sent : %ld\r\n", total_bytes_sent);
+  printf("\r\nTotal bytes sent : %llu\r\n", total_bytes_sent);
   printf("\r\nSend fail count : %ld, Send pass count : %ld\r\n", fail, pass);
 
   measure_and_print_throughput(total_bytes_sent, (now - start));
