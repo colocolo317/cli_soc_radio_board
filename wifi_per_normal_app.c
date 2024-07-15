@@ -27,9 +27,11 @@
  * 3. This notice may not be removed or altered from any source distribution.
  *
  ******************************************************************************/
+#if 0
 #include "inttypes.h"
 #include "stdio.h"
 #include "stdint.h"
+#endif
 #include "sl_board_configuration.h"
 #include "cmsis_os2.h"
 #include "sl_net_default_values.h"
@@ -305,7 +307,12 @@ void receive_data_from_tls_server(void);
 void send_data_to_tls_server(void);
 static void application_start(void *argument);
 static void measure_and_print_throughput(const uint64_t total_num_of_bytes, const uint32_t test_timeout);
-static void print_throughput_periodic(const uint32_t total_num_of_bytes, const uint32_t time_now, const uint32_t time_last);
+static void print_throughput_periodic(const uint32_t total_num_of_bytes,
+                                      const uint32_t time_now,
+                                      const uint32_t time_last,
+                                      const uint16_t trx_pass,
+                                      const uint16_t trx_fail
+                                      );
 #ifdef SLI_SI91X_MCU_INTERFACE
 void switch_m4_frequency(void);
 #endif
@@ -375,17 +382,36 @@ static void measure_and_print_throughput(const uint64_t total_num_of_bytes, cons
   printf("\r\nThroughput achieved @ %0.02f Mbps in %0.03f sec successfully\r\n", result, duration);
 }
 
-static void print_throughput_periodic(const uint32_t total_num_of_bytes, const uint32_t time_now, const uint32_t time_last)
+static void print_throughput_periodic(const uint32_t total_num_of_bytes,
+                                      const uint32_t time_now,
+                                      const uint32_t time_last,
+                                      const uint16_t trx_pass,
+                                      const uint16_t trx_fail
+                                      )
 {
   static float startover_time_last = 0;
   static float startover_time_now = 0;
-  uint32_t test_timeout = time_now - time_last;
+  uint16_t test_timeout = time_now - time_last;
   float duration = ((test_timeout) / 1000.0) / tick_count_s; // ms to sec
   startover_time_now += duration;
   float mbytes = total_num_of_bytes/1024.0/1024;
-  float result   = (total_num_of_bytes) / duration * 8;    // bytes to bits
+  float result   = total_num_of_bytes / duration * 8;    // bytes to bits
   result         = (result / 1000000);                     // bps to Mbps
-  printf("%0.1f-%0.1f sec %0.02f Mbytes %0.02f Mbps\r\n", startover_time_last, startover_time_now, mbytes, result);
+
+  uint16_t trx_sum = trx_pass + trx_fail;
+  if(trx_sum == 0)
+  { printf("%0.1f-%0.1f sec\t%0.02f Mbytes %0.02f Mbps\r\n", startover_time_last, startover_time_now, mbytes, result); }
+  else
+  {
+#if 1
+    float err_rate = (float)trx_fail / trx_sum * 100;
+#else
+    uint32_t test = 500;
+    float err_rate = (float)test / trx_sum * 100;
+#endif
+    printf("%0.1f-%0.1f sec\t%0.02f Mbytes %0.02f Mbps %u/%u (%0.0f%%)\r\n", startover_time_last, startover_time_now, mbytes, result,
+           trx_fail, trx_pass, err_rate);
+  }
 
   startover_time_last = startover_time_now;
 }
@@ -670,8 +696,12 @@ static void application_start(void *argument)
       send_data_to_tls_server();
       break;
     default:
-      printf("Invalid Throughput test");
+      printf("Invalid Throughput test\r\n");
   }
+
+  /// fixme: wifi deinit
+  osThreadExit();
+
 }
 
 static sl_status_t ap_connected_event_handler(sl_wifi_event_t event, void *data, uint32_t data_length, void *arg)
@@ -963,6 +993,7 @@ void receive_data_from_tcp_client(void)
 #endif
 }
 
+//! UDP TX
 void send_data_to_udp_server(void)
 {
   int client_socket = -1;
@@ -975,6 +1006,8 @@ void send_data_to_udp_server(void)
   int sent_bytes                    = 1;
   uint32_t fail                     = 0;
   uint32_t pass                     = 0;
+  uint16_t fail_periodic = 0;
+  uint16_t pass_periodic = 0;
   char IPERF_SERVER_IP[16];
 
   server_address.sin_family = AF_INET;
@@ -1006,21 +1039,13 @@ void send_data_to_udp_server(void)
     sent_bytes =
         sendto(client_socket, data_buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr *)&server_address, socket_length);
     now = osKernelGetTickCount();
-#if 0
-    if ((now - start) > app_timeout)
-#else
-    if ((now - start) > (app_timeout*tick_count_s))
-#endif
-    {
-      print_throughput_periodic(tx_bytes_periodic, now, last);
-      printf("\r\nTime Out: %ld\r\n", (now - start));
-      break;
-    }
-    if (sent_bytes < 0) {
-      /// todo: periodic print pass/fail ratio
+    if (sent_bytes < 0)
+    { /// todo: periodic print pass/fail ratio
       fail++;
+      fail_periodic++;
     } else {
       pass++;
+      pass_periodic++;
     }
     if (sent_bytes > 0)
     {
@@ -1028,27 +1053,36 @@ void send_data_to_udp_server(void)
       tx_int64_calc_int32overflow(sent_bytes);
     }
 
+    if ((now - start) > (app_timeout*tick_count_s))
+    {
+      print_throughput_periodic(tx_bytes_periodic, now, last, pass_periodic, fail_periodic);
+      printf("\r\nTime Out: %ld\r\n", (now - start));
+      break;
+    }
     if(last == 0)
     {
-      print_throughput_periodic(tx_bytes_periodic, now, start);
+      print_throughput_periodic(tx_bytes_periodic, now, start, pass_periodic, fail_periodic);
       last = now;
       tx_bytes_periodic = 0;
+      pass_periodic = 0;
+      fail_periodic = 0;
     }
     else if((now - last) >= (1000*tick_count_s)) // over 1 sec
     {
-      //printf("now %ld, last %ld, diff %ld\r\n", now, last, (now-last));
-      print_throughput_periodic(tx_bytes_periodic, now, last);
+      print_throughput_periodic(tx_bytes_periodic, now, last, pass_periodic, fail_periodic);
       last = now;
       tx_bytes_periodic = 0;
+      pass_periodic = 0;
+      fail_periodic = 0;
     }
   }
   printf("\r\nUDP_TX Throughput test finished\r\n");
-  //printf("\r\nTotal bytes sent : %llu \r\n", total_bytes_sent);
-  /// fixme: uint64 can't print directly, separate into 2 uint32
+
   if(tx_bytes_hi != 0)
   { printf("Total bytes sent high: %10lu000000000\r\n", tx_bytes_hi*4); }
-    printf("Total bytes sent low : %19lu\r\n", tx_bytes_lo);
-  printf("Send fail count : %ld, Send pass count : %ld\r\n", fail, pass);
+  printf("Total bytes sent low : %19lu\r\n", tx_bytes_lo);
+  float total_error_rate = (float)fail / (fail + pass) *100;
+  printf("Send fail count : %lu, Send pass count : %lu, Error rate: %0.1f%%\r\n", fail, pass, total_error_rate);
 
   measure_and_print_throughput(total_bytes_sent, (now - start));
 
