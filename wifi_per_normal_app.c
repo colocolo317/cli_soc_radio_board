@@ -72,12 +72,6 @@
 #define LISTENING_PORT 5001
 #define BACK_LOG       1
 
-#ifdef SLI_SI91X_MCU_INTERFACE
-uint32_t tick_count_s = 10;
-#else
-uint32_t tick_count_s = 1;
-#endif
-
 #define BYTES_TO_SEND    ((uint64_t) 0x1000000000) // 64GB <-//(1 << 29) //512MB
 #define BYTES_TO_RECEIVE ((uint64_t) 0x1000000000) // 64GB <-//(1 << 28) //256MB
 #define DEFAULT_TIMEOUT  (30000)   //30sec
@@ -265,11 +259,15 @@ uint8_t troughput_type = 2;     //0:udp_tx, 1:, udp_rx, 2: tcp_tx, 3: tcp_rx
 uint16_t ap_channel = SL_WIFI_AUTO_CHANNEL; // assign ap channel
 uint8_t set_region = US;
 uint32_t app_timeout = DEFAULT_TIMEOUT;
-char server_ip_sta[16] = {0};
+char iperf_server_ip[16] = {0};
 
 unsigned int max_data_buffer_size;
 
-
+#ifdef SLI_SI91X_MCU_INTERFACE
+volatile uint8_t tick_count_s = 10;
+#else
+volatile uint8_t tick_count_s = 1;
+#endif
 volatile uint8_t wifi_per_terminate = 0; // add end signal
 volatile uint8_t has_data_received = 0;
 #define RTX32_OVERFLOW 4000000000
@@ -466,17 +464,17 @@ static void application_start(void *argument)
   printf("GNU ARM v12.2.1 , wifi_wlan_throughput_soc Build: %s %s\r\n", __DATE__, __TIME__);
 
   wifi_per_normal_config_t config = *(wifi_per_normal_config_t*) argument;
+  memset(iperf_server_ip, 0, IP_ADDR_MAX_LEN+1);
 
   if (wifi_mode == wifi_sta_mode)
   {
-    memset(server_ip_sta, 0, IP_ADDR_MAX_LEN+1);
     if(config.str_ip == NULL)
     {
-      memcpy(server_ip_sta, STA_IPERF_SERVER_IP, MIN((strlen(STA_IPERF_SERVER_IP)+1), (IP_ADDR_MAX_LEN+1)));
+      memcpy(iperf_server_ip, STA_IPERF_SERVER_IP, MIN((strlen(STA_IPERF_SERVER_IP)+1), (IP_ADDR_MAX_LEN+1)));
     }
     else
     {
-      memcpy(server_ip_sta, config.str_ip, MIN((strlen(config.str_ip)+1), (IP_ADDR_MAX_LEN+1)));
+      memcpy(iperf_server_ip, config.str_ip, MIN((strlen(config.str_ip)+1), (IP_ADDR_MAX_LEN+1)));
     }
 
     if(set_region != US)
@@ -484,7 +482,7 @@ static void application_start(void *argument)
       sta_throughput_configuration.region_code = set_region;
     }
 
-    printf("STA mode, server IP %s\r\n", server_ip_sta);
+    printf("STA mode, server IP %s\r\n", iperf_server_ip);
     status = sl_net_init(SL_NET_WIFI_CLIENT_INTERFACE, &sta_throughput_configuration, NULL, NULL);
     if (status != SL_STATUS_OK) {
       printf("\r\nFailed to start Wi-Fi Client interface: 0x%lx\r\n", status);
@@ -498,12 +496,8 @@ static void application_start(void *argument)
       return;
     }
     printf("\r\nDevice MAC address: %x:%x:%x:%x:%x:%x\r\n",
-           mac_addr.octet[0],
-           mac_addr.octet[1],
-           mac_addr.octet[2],
-           mac_addr.octet[3],
-           mac_addr.octet[4],
-           mac_addr.octet[5]);
+           mac_addr.octet[0], mac_addr.octet[1], mac_addr.octet[2],
+           mac_addr.octet[3], mac_addr.octet[4], mac_addr.octet[5]);
 
     status = sl_wifi_get_firmware_version(&firmware_version);
     if (status != SL_STATUS_OK) {
@@ -534,12 +528,22 @@ static void application_start(void *argument)
   }
   else
   {
+
+    if(config.str_ip == NULL)
+    {
+      memcpy(iperf_server_ip, SOFTAP_IPERF_SERVER_IP, MIN((strlen(SOFTAP_IPERF_SERVER_IP)+1), (IP_ADDR_MAX_LEN+1)));
+    }
+    else
+    {
+      memcpy(iperf_server_ip, config.str_ip, MIN((strlen(config.str_ip)+1), (IP_ADDR_MAX_LEN+1)));
+    }
+
     if(set_region != US)
     {
       softap_throughput_configuration.region_code = set_region;
     }
 
-    printf("AP mode\r\n");
+    printf("AP mode, Server IP %s\r\n", iperf_server_ip);
 
     status = sl_net_init(SL_NET_WIFI_AP_INTERFACE, &softap_throughput_configuration, NULL, NULL);
     if (status != SL_STATUS_OK) {
@@ -635,7 +639,7 @@ static void application_start(void *argument)
   }
   else
   {
-    if(troughput_type == udp_tx || troughput_type == tcp_tx)
+    if(troughput_type == udp_tx || troughput_type == tcp_tx || troughput_type == udp_rx)
     {
       tick_count_s = 1;
     }
@@ -645,7 +649,7 @@ static void application_start(void *argument)
     }
   }
 
-  printf("\r\ntick_count_s=%ld\r\n", tick_count_s);
+  printf("\r\ntick_count_s=%u\r\n", tick_count_s);
   if(troughput_type == udp_tx || troughput_type == udp_rx)
   {
     max_data_buffer_size = UDP_BUFFER_SIZE;
@@ -765,14 +769,8 @@ void send_data_to_udp_server(void)
   server_address.sin_port   = IPERF_SERVER_PORT;
 
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
-  if (wifi_mode == wifi_sta_mode)
-  {
-    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
-  }
-  else
-  {
-    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
-  }
+  memcpy(IPERF_SERVER_IP, iperf_server_ip, MIN(strlen(iperf_server_ip)+1,(IP_ADDR_MAX_LEN+1)));
+
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
 
@@ -945,14 +943,8 @@ void send_data_to_tcp_server(void)
   server_address.sin_port   = IPERF_SERVER_PORT;
 
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
-  if (wifi_mode == wifi_sta_mode)
-  {
-    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
-  }
-  else
-  {
-    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
-  }
+  memcpy(IPERF_SERVER_IP, iperf_server_ip, MIN(strlen(iperf_server_ip)+1, (IP_ADDR_MAX_LEN+1)));
+
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
 
@@ -1138,14 +1130,8 @@ void receive_data_from_tls_server(void)
   server_address.sin_port   = TLS_SERVER_PORT;
 
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
-  if (wifi_mode == wifi_sta_mode)
-  {
-    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
-  }
-  else
-  {
-    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
-  }
+  memcpy(IPERF_SERVER_IP, iperf_server_ip, MIN(strlen(iperf_server_ip)+1, (IP_ADDR_MAX_LEN+1)));
+
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
 
@@ -1199,14 +1185,8 @@ void receive_data_from_tls_server(void)
   server_address.sin_port   = TLS_SERVER_PORT;
 
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
-  if (wifi_mode == wifi_sta_mode)
-  {
-    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
-  }
-  else
-  {
-    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
-  }
+  memcpy(IPERF_SERVER_IP, iperf_server_ip, MIN(strlen(iperf_server_ip)+1,(IP_ADDR_MAX_LEN+1)));
+
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
 
@@ -1277,14 +1257,9 @@ void send_data_to_tls_server(void)
   server_address.sin_family = AF_INET;
   server_address.sin_port   = TLS_SERVER_PORT;
   memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
-  if (wifi_mode == wifi_sta_mode)
-  {
-    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
-  }
-  else
-  {
-    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
-  }
+
+  memcpy(IPERF_SERVER_IP, iperf_server_ip, MIN(strlen(iperf_server_ip)+1,(IP_ADDR_MAX_LEN+1)));
+
   sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
   printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
 

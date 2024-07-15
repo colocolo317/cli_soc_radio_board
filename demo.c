@@ -33,8 +33,8 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242902"
-#define VERSION_GOAL        "iperf print modify"
+#define AMPAK_CLI_VERSION   "ve01.02.242903"
+#define VERSION_GOAL        "minor modify.Todo: test wifi per ap udp rx"
 #define MODIFY_START_DATE   "2024.07.15"
 
 /******************************************************
