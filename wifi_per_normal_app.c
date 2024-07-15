@@ -744,172 +744,6 @@ void tx_int64_calc_int32overflow(int sent_bytes)
   }
 }
 
-
-void send_data_to_tcp_server(void)
-{
-  int client_socket                 = -1;
-  total_bytes_sent         = 0;
-  tx_bytes_lo = 0;
-  tx_bytes_hi = 0;
-  int socket_return_value           = 0;
-  int sent_bytes                    = 1;
-  uint32_t fail                     = 0;
-  uint32_t pass                     = 0;
-  struct sockaddr_in server_address = { 0 };
-  socklen_t socket_length           = sizeof(struct sockaddr_in);
-  char IPERF_SERVER_IP[16];
-
-  server_address.sin_family = AF_INET;
-  server_address.sin_port   = IPERF_SERVER_PORT;
-
-  memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
-  if (wifi_mode == wifi_sta_mode)
-  {
-    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
-  }
-  else
-  {
-    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
-  }
-  sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
-  printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
-
-  client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (client_socket < 0) {
-    printf("\r\nSocket Create failed with bsd error: %d\r\n", errno);
-    return;
-  }
-  printf("\r\nSocket ID : %d\r\n", client_socket);
-
-
-  socket_return_value = connect(client_socket, (struct sockaddr *)&server_address, socket_length);
-  if (socket_return_value < 0) {
-    printf("\r\nSocket Connect failed with bsd error: %d\r\n", errno);
-    close(client_socket);
-    return;
-  }
-  printf("\r\nSocket connected to TCP server\r\n");
-
-  printf("\r\nTCP_TX Throughput test start\r\n");
-  start = osKernelGetTickCount();
-  while (total_bytes_sent < BYTES_TO_SEND)
-  {
-    sent_bytes = send(client_socket, data_buffer, TCP_BUFFER_SIZE, 0);
-    now        = osKernelGetTickCount();
-    if (sent_bytes > 0)
-    {
-      total_bytes_sent = total_bytes_sent + sent_bytes;
-      tx_int64_calc_int32overflow(sent_bytes);
-    }
-#if 0
-    if ((now - start) > app_timeout)
-#else
-    if ((now - start) > (app_timeout*tick_count_s))
-#endif
-    {
-      printf("\r\nTime Out: %ld\r\n", (now - start));
-      break;
-    }
-    if (sent_bytes < 0) {
-      fail++;
-    } else {
-      pass++;
-    }
-  }
-  printf("\r\nTCP_TX Throughput test finished\r\n");
-  /// fixme: uint64 can't print directly, separate into 2 uint32
-  printf("\r\nTotal bytes sent high : %lu000000000\r\n", tx_bytes_hi*4);
-  printf("\r\nTotal bytes sent low  : %lu\r\n", tx_bytes_lo);
-  printf("\r\nSend fail count : %ld, Send pass count : %ld\r\n", fail, pass);
-
-  measure_and_print_throughput(total_bytes_sent, (now - start));
-
-  close(client_socket);
-}
-
-void receive_data_from_tcp_client(void)
-{
-  int server_socket                 = -1;
-  int client_socket                 = -1;
-  int socket_return_value           = 0;
-  struct sockaddr_in server_address = { 0 };
-  socklen_t socket_length           = sizeof(struct sockaddr_in);
-  uint8_t high_performance_socket   = SL_HIGH_PERFORMANCE_SOCKET;
-
-  sl_status_t status = sl_si91x_config_socket(socket_config);
-  if (status != SL_STATUS_OK) {
-    printf("Socket config failed: %ld\r\n", status);
-  }
-  printf("\r\nSocket config Done\r\n");
-
-#if SOCKET_ASYNC_FEATURE
-  server_socket = sl_si91x_socket_async(AF_INET, SOCK_STREAM, IPPROTO_TCP, &data_callback);
-  if (server_socket < 0) {
-    printf("\r\nSocket creation failed with bsd error: %d\r\n", errno);
-    return;
-  }
-  printf("\r\nServer Socket ID : %d\r\n", server_socket);
-
-  socket_return_value = sl_si91x_setsockopt_async(server_socket,
-                                                  SOL_SOCKET,
-                                                  SL_SI91X_SO_HIGH_PERFORMANCE_SOCKET,
-                                                  &high_performance_socket,
-                                                  sizeof(high_performance_socket));
-  if (socket_return_value < 0) {
-    printf("\r\nSet Socket option failed with bsd error: %d\r\n", errno);
-    close(client_socket);
-    return;
-  }
-  server_address.sin_family = AF_INET;
-  server_address.sin_port   = LISTENING_PORT;
-
-  socket_return_value = sl_si91x_bind(server_socket, (struct sockaddr *)&server_address, socket_length);
-  if (socket_return_value < 0) {
-    printf("\r\nSocket bind failed with bsd error: %d\r\n", errno);
-    close(server_socket);
-    return;
-  }
-
-  socket_return_value = sl_si91x_listen(server_socket, BACK_LOG);
-  if (socket_return_value < 0) {
-    printf("\r\nSocket listen failed with bsd error: %d\r\n", errno);
-    close(server_socket);
-    return;
-  }
-  printf("\r\nListening on Local Port : %d\r\n", LISTENING_PORT);
-
-  client_socket = sl_si91x_accept(server_socket, NULL, 0);
-  if (client_socket < 0) {
-    printf("\r\nSocket accept failed with bsd error: %d\r\n", errno);
-    close(server_socket);
-    return;
-  }
-
-  while (!has_data_received && !wifi_per_terminate) {
-    if (wifi_mode == wifi_ap_mode)
-    {
-      now = osKernelGetTickCount();
-
-
-      if ((now - start) > (app_timeout*tick_count_s)) {
-        has_data_received = 1;
-      }
-    }
-    osThreadYield();
-  }
-
-  now = osKernelGetTickCount();
-
-  printf("\r\nTCP_RX Throughput test finished\r\n");
-  printf("\r\nTotal bytes received : %llu \r\n", bytes_read);
-
-  close(server_socket);
-  close(client_socket);
-
-  measure_and_print_throughput(bytes_read, (now - start));
-#endif
-}
-
 //! UDP TX
 void send_data_to_udp_server(void)
 {
@@ -1090,6 +924,171 @@ void receive_data_from_udp_client(void)
   measure_and_print_throughput(bytes_read, (now - start));
 
   close(client_socket);
+#endif
+}
+
+void send_data_to_tcp_server(void)
+{
+  int client_socket                 = -1;
+  total_bytes_sent         = 0;
+  tx_bytes_lo = 0;
+  tx_bytes_hi = 0;
+  int socket_return_value           = 0;
+  int sent_bytes                    = 1;
+  uint32_t fail                     = 0;
+  uint32_t pass                     = 0;
+  struct sockaddr_in server_address = { 0 };
+  socklen_t socket_length           = sizeof(struct sockaddr_in);
+  char IPERF_SERVER_IP[16];
+
+  server_address.sin_family = AF_INET;
+  server_address.sin_port   = IPERF_SERVER_PORT;
+
+  memset(IPERF_SERVER_IP, 0x0, sizeof(IPERF_SERVER_IP));
+  if (wifi_mode == wifi_sta_mode)
+  {
+    memcpy(IPERF_SERVER_IP, server_ip_sta, strlen(server_ip_sta));
+  }
+  else
+  {
+    memcpy(IPERF_SERVER_IP, SOFTAP_IPERF_SERVER_IP, strlen(SOFTAP_IPERF_SERVER_IP));
+  }
+  sl_net_inet_addr(IPERF_SERVER_IP, &server_address.sin_addr.s_addr);
+  printf("Server setup IP: %s, Port: %u\r\n", IPERF_SERVER_IP, server_address.sin_port);
+
+  client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (client_socket < 0) {
+    printf("\r\nSocket Create failed with bsd error: %d\r\n", errno);
+    return;
+  }
+  printf("\r\nSocket ID : %d\r\n", client_socket);
+
+
+  socket_return_value = connect(client_socket, (struct sockaddr *)&server_address, socket_length);
+  if (socket_return_value < 0) {
+    printf("\r\nSocket Connect failed with bsd error: %d\r\n", errno);
+    close(client_socket);
+    return;
+  }
+  printf("\r\nSocket connected to TCP server\r\n");
+
+  printf("\r\nTCP_TX Throughput test start\r\n");
+  start = osKernelGetTickCount();
+  while (total_bytes_sent < BYTES_TO_SEND)
+  {
+    sent_bytes = send(client_socket, data_buffer, TCP_BUFFER_SIZE, 0);
+    now        = osKernelGetTickCount();
+    if (sent_bytes > 0)
+    {
+      total_bytes_sent = total_bytes_sent + sent_bytes;
+      tx_int64_calc_int32overflow(sent_bytes);
+    }
+#if 0
+    if ((now - start) > app_timeout)
+#else
+    if ((now - start) > (app_timeout*tick_count_s))
+#endif
+    {
+      printf("\r\nTime Out: %ld\r\n", (now - start));
+      break;
+    }
+    if (sent_bytes < 0) {
+      fail++;
+    } else {
+      pass++;
+    }
+  }
+  printf("\r\nTCP_TX Throughput test finished\r\n");
+  /// fixme: uint64 can't print directly, separate into 2 uint32
+  printf("\r\nTotal bytes sent high : %lu000000000\r\n", tx_bytes_hi*4);
+  printf("\r\nTotal bytes sent low  : %lu\r\n", tx_bytes_lo);
+  printf("\r\nSend fail count : %ld, Send pass count : %ld\r\n", fail, pass);
+
+  measure_and_print_throughput(total_bytes_sent, (now - start));
+
+  close(client_socket);
+}
+
+void receive_data_from_tcp_client(void)
+{
+  int server_socket                 = -1;
+  int client_socket                 = -1;
+  int socket_return_value           = 0;
+  struct sockaddr_in server_address = { 0 };
+  socklen_t socket_length           = sizeof(struct sockaddr_in);
+  uint8_t high_performance_socket   = SL_HIGH_PERFORMANCE_SOCKET;
+
+  sl_status_t status = sl_si91x_config_socket(socket_config);
+  if (status != SL_STATUS_OK) {
+    printf("Socket config failed: %ld\r\n", status);
+  }
+  printf("\r\nSocket config Done\r\n");
+
+#if SOCKET_ASYNC_FEATURE
+  server_socket = sl_si91x_socket_async(AF_INET, SOCK_STREAM, IPPROTO_TCP, &data_callback);
+  if (server_socket < 0) {
+    printf("\r\nSocket creation failed with bsd error: %d\r\n", errno);
+    return;
+  }
+  printf("\r\nServer Socket ID : %d\r\n", server_socket);
+
+  socket_return_value = sl_si91x_setsockopt_async(server_socket,
+                                                  SOL_SOCKET,
+                                                  SL_SI91X_SO_HIGH_PERFORMANCE_SOCKET,
+                                                  &high_performance_socket,
+                                                  sizeof(high_performance_socket));
+  if (socket_return_value < 0) {
+    printf("\r\nSet Socket option failed with bsd error: %d\r\n", errno);
+    close(client_socket);
+    return;
+  }
+  server_address.sin_family = AF_INET;
+  server_address.sin_port   = LISTENING_PORT;
+
+  socket_return_value = sl_si91x_bind(server_socket, (struct sockaddr *)&server_address, socket_length);
+  if (socket_return_value < 0) {
+    printf("\r\nSocket bind failed with bsd error: %d\r\n", errno);
+    close(server_socket);
+    return;
+  }
+
+  socket_return_value = sl_si91x_listen(server_socket, BACK_LOG);
+  if (socket_return_value < 0) {
+    printf("\r\nSocket listen failed with bsd error: %d\r\n", errno);
+    close(server_socket);
+    return;
+  }
+  printf("\r\nListening on Local Port : %d\r\n", LISTENING_PORT);
+
+  client_socket = sl_si91x_accept(server_socket, NULL, 0);
+  if (client_socket < 0) {
+    printf("\r\nSocket accept failed with bsd error: %d\r\n", errno);
+    close(server_socket);
+    return;
+  }
+
+  while (!has_data_received && !wifi_per_terminate) {
+    if (wifi_mode == wifi_ap_mode)
+    {
+      now = osKernelGetTickCount();
+
+
+      if ((now - start) > (app_timeout*tick_count_s)) {
+        has_data_received = 1;
+      }
+    }
+    osThreadYield();
+  }
+
+  now = osKernelGetTickCount();
+
+  printf("\r\nTCP_RX Throughput test finished\r\n");
+  printf("\r\nTotal bytes received : %llu \r\n", bytes_read);
+
+  close(server_socket);
+  close(client_socket);
+
+  measure_and_print_throughput(bytes_read, (now - start));
 #endif
 }
 
