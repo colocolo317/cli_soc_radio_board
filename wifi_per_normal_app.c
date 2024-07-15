@@ -278,6 +278,7 @@ volatile uint64_t bytes_read       = 0;
 volatile uint32_t rx_bytes_hi = 0; // 4000000000 multiply
 volatile uint32_t rx_bytes_lo = 0; // filled with 4,000,000,000 carry to hi
 volatile uint32_t rx_bytes_periodic = 0;
+volatile uint32_t datagram_count = 0;
 /// for tx
 volatile uint64_t total_bytes_sent = 0;
 volatile uint32_t tx_bytes_hi = 0; // 4000000000 multiply
@@ -307,11 +308,8 @@ void receive_data_from_tls_server(void);
 void send_data_to_tls_server(void);
 static void application_start(void *argument);
 static void measure_and_print_throughput(const uint64_t total_num_of_bytes, const uint32_t test_timeout);
-static void print_throughput_periodic(const uint32_t total_num_of_bytes,
-                                      const uint32_t time_now,
-                                      const uint32_t time_last,
-                                      const uint16_t trx_pass,
-                                      const uint16_t trx_fail
+static void print_throughput_periodic(const uint32_t total_num_of_bytes, const uint32_t time_now,
+                                      const uint32_t time_last, const uint16_t trx_pass, const uint16_t trx_fail
                                       );
 #ifdef SLI_SI91X_MCU_INTERFACE
 void switch_m4_frequency(void);
@@ -382,12 +380,8 @@ static void measure_and_print_throughput(const uint64_t total_num_of_bytes, cons
   printf("\r\nThroughput achieved @ %0.02f Mbps in %0.03f sec successfully\r\n", result, duration);
 }
 
-static void print_throughput_periodic(const uint32_t total_num_of_bytes,
-                                      const uint32_t time_now,
-                                      const uint32_t time_last,
-                                      const uint16_t trx_pass,
-                                      const uint16_t trx_fail
-                                      )
+static void print_throughput_periodic(const uint32_t total_num_of_bytes, const uint32_t time_now,
+                                      const uint32_t time_last, const uint16_t trx_pass, const uint16_t trx_fail )
 {
   static float startover_time_last = 0;
   static float startover_time_now = 0;
@@ -400,7 +394,7 @@ static void print_throughput_periodic(const uint32_t total_num_of_bytes,
 
   uint16_t trx_sum = trx_pass + trx_fail;
   if(trx_sum == 0)
-  { printf("%0.1f-%0.1f sec\t%0.02f Mbytes %0.02f Mbps\r\n", startover_time_last, startover_time_now, mbytes, result); }
+  { printf("%0.1f-%0.1f sec %0.02f Mbytes %0.02f Mbps\r\n", startover_time_last, startover_time_now, mbytes, result); }
   else
   {
 #if 1
@@ -409,8 +403,8 @@ static void print_throughput_periodic(const uint32_t total_num_of_bytes,
     uint32_t test = 500;
     float err_rate = (float)test / trx_sum * 100;
 #endif
-    printf("%0.1f-%0.1f sec\t%0.02f Mbytes %0.02f Mbps %u/%u (%0.0f%%)\r\n", startover_time_last, startover_time_now, mbytes, result,
-           trx_fail, trx_pass, err_rate);
+    printf("%0.1f-%0.1f sec %0.02f Mbytes %0.02f Mbps %u/%u (%0.0f%%)\r\n", startover_time_last, startover_time_now, mbytes, result,
+           trx_fail, trx_sum, err_rate);
   }
 
   startover_time_last = startover_time_now;
@@ -421,11 +415,13 @@ void data_callback(uint32_t sock_no, uint8_t *buffer, uint32_t length)
 {
   UNUSED_PARAMETER(buffer);
 
-  if (first_data_frame) {
+  if (first_data_frame)
+  {
     start = osKernelGetTickCount();
     printf("\r\nClient Socket ID : %ld\r\n", sock_no);
 
-    switch (troughput_type) {
+    switch (troughput_type)
+    {
       case udp_rx:
         printf("\r\nUDP_RX Throughput test start\r\n");
         break;
@@ -440,16 +436,12 @@ void data_callback(uint32_t sock_no, uint8_t *buffer, uint32_t length)
   }
 
   bytes_read += length;
+  datagram_count ++;
   rx_int64_calc_int32overflow(length);
+
   now = osKernelGetTickCount();
-#if 0
-  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > app_timeout))
-#else
-    if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > (app_timeout*tick_count_s)))
-#endif
-    {
-      has_data_received = 1;
-    }
+  if ((bytes_read > BYTES_TO_RECEIVE) || ((now - start) > (app_timeout*tick_count_s)))
+  { has_data_received = 1; }
 }
 
 #ifdef SLI_SI91X_MCU_INTERFACE
@@ -897,6 +889,8 @@ void receive_data_from_tcp_client(void)
     if (wifi_mode == wifi_ap_mode)
     {
       now = osKernelGetTickCount();
+
+
       if ((now - start) > (app_timeout*tick_count_s)) {
         has_data_received = 1;
       }
@@ -913,83 +907,6 @@ void receive_data_from_tcp_client(void)
   close(client_socket);
 
   measure_and_print_throughput(bytes_read, (now - start));
-#else
-  int read_bytes                = 1;
-  uint32_t total_bytes_received = 0;
-  server_socket                 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (server_socket < 0) {
-    printf("\r\nSocket creation failed with bsd error: %d\r\n", errno);
-    return;
-  }
-  printf("\r\nServer Socket ID : %d\r\n", server_socket);
-
-  socket_return_value = sl_si91x_set_custom_sync_sockopt(server_socket,
-                                                         SOL_SOCKET,
-                                                         SO_HIGH_PERFORMANCE_SOCKET,
-                                                         &high_performance_socket,
-                                                         sizeof(high_performance_socket));
-  if (socket_return_value < 0) {
-    printf("\r\nSet Socket option failed with bsd error: %d\r\n", errno);
-    close(client_socket);
-    return;
-  }
-  server_address.sin_family = AF_INET;
-  server_address.sin_port   = LISTENING_PORT;
-
-  socket_return_value = bind(server_socket, (struct sockaddr *)&server_address, socket_length);
-  if (socket_return_value < 0) {
-    printf("\r\nSocket bind failed with bsd error: %d\r\n", errno);
-    close(server_socket);
-    return;
-  }
-
-  socket_return_value = listen(server_socket, BACK_LOG);
-  if (socket_return_value < 0) {
-    printf("\r\nSocket listen failed with bsd error: %d\r\n", errno);
-    close(server_socket);
-    return;
-  }
-  printf("\r\nListening on Local Port : %d\r\n", LISTENING_PORT);
-
-  client_socket = accept(server_socket, NULL, NULL);
-  if (client_socket < 0) {
-    printf("\r\nSocket accept failed with bsd error: %d\r\n", errno);
-    close(server_socket);
-    return;
-  }
-  printf("\r\nClient Socket ID : %d\r\n", client_socket);
-
-  printf("\r\nTCP_RX Throughput test start\r\n");
-  start = osKernelGetTickCount();
-  while (read_bytes > 0) {
-    read_bytes = recv(client_socket, data_buffer, sizeof(data_buffer), 0);
-    if (read_bytes < 0) {
-      printf("\r\nReceive failed with bsd error:%d\r\n", errno);
-      close(client_socket);
-      close(server_socket);
-      return;
-    }
-    total_bytes_received = total_bytes_received + read_bytes;
-    now                  = osKernelGetTickCount();
-
-#if 0
-    if ((now - start) > app_timeout)
-#else
-      if ((now - start) > (app_timeout*tick_count_s))
-#endif
-      {
-        printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
-        break;
-      }
-  }
-  printf("\r\nTCP_RX Throughput test finished\r\n");
-  printf("\r\nTotal bytes received : %ld\r\n", total_bytes_received);
-
-  measure_and_print_throughput(total_bytes_received, (now - start));
-
-  close(server_socket);
-  close(client_socket);
-
 #endif
 }
 
@@ -1089,12 +1006,16 @@ void send_data_to_udp_server(void)
   close(client_socket);
 }
 
+/// UDP RX
 void receive_data_from_udp_client(void)
 {
   int client_socket = -1;
   bytes_read = 0;
   rx_bytes_lo = 0;
   rx_bytes_hi = 0;
+  rx_bytes_periodic = 0;
+  datagram_count = 0;
+  last = 0;
 
   int socket_return_value           = 0;
   struct sockaddr_in server_address = { 0 };
@@ -1120,71 +1041,53 @@ void receive_data_from_udp_client(void)
   }
   printf("\r\nListening on Local Port %d\r\n", LISTENING_PORT);
 
-  while (!has_data_received && !wifi_per_terminate) {
+  while (!has_data_received && !wifi_per_terminate)
+  {
+#if 0
     if (wifi_mode == wifi_ap_mode)
     {
+
+      if ((now - start) > (app_timeout*tick_count_s))
+      { has_data_received = 1; }
+    }
+#endif
+    if(start != 0)
+    {
       now = osKernelGetTickCount();
-      if ((now - start) > (app_timeout*tick_count_s)) {
+      if ((now - start) > (app_timeout*tick_count_s))
+      {
+        print_throughput_periodic(rx_bytes_periodic, now, last, 0, 0);
+        printf("\r\nTime Out: %ld\r\n", (now - start));
         has_data_received = 1;
+        break;
+      }
+      if(last == 0)
+      {
+        print_throughput_periodic(rx_bytes_periodic, now, start, 0, 0);
+        last = now;
+        rx_bytes_periodic = 0;
+        //pass_periodic = 0; fail_periodic = 0;
+      }
+      else if((now - last) >= (1000*tick_count_s)) // over 1 sec
+      {
+        print_throughput_periodic(rx_bytes_periodic, now, last, 0, 0);
+        last = now;
+        rx_bytes_periodic = 0;
+        //pass_periodic = 0; fail_periodic = 0;
       }
     }
     osThreadYield();
   }
+#if 0
   now = osKernelGetTickCount();
-  printf("\r\nUDP_RX Async Throughput test finished\r\n\r\n");
+#endif
+  printf("\r\nUDP_RX Async Throughput test finished\r\n");
   //printf("\r\nTotal bytes received : %llu \r\n", bytes_read);
   if(rx_bytes_hi != 0)
   { printf("Total bytes received high: %10lu000000000 \r\n", rx_bytes_hi*4);}
   printf("Total bytes received low : %19lu \r\n", rx_bytes_lo);
+  printf("Total datagram get : %lu", datagram_count);
   measure_and_print_throughput(bytes_read, (now - start));
-
-  close(client_socket);
-#else
-  int read_bytes                = 1;
-  uint32_t total_bytes_received = 0;
-  client_socket                 = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (client_socket < 0) {
-    printf("\r\nSocket creation failed with bsd error: %d\r\n", errno);
-    return;
-  }
-  printf("\r\nSocket ID : %d\r\n", client_socket);
-
-  server_address.sin_family = AF_INET;
-  server_address.sin_port   = LISTENING_PORT;
-
-  socket_return_value = bind(client_socket, (struct sockaddr *)&server_address, socket_length);
-  if (socket_return_value < 0) {
-    printf("\r\nSocket bind failed with bsd error: %d\r\n", errno);
-    close(client_socket);
-    return;
-  }
-  printf("\r\nListening on Local Port %d\r\n", LISTENING_PORT);
-
-  printf("\r\nUDP_RX Throughput test start\r\n");
-  start = osKernelGetTickCount();
-  while (total_bytes_received < BYTES_TO_RECEIVE) {
-    read_bytes = recvfrom(client_socket, data_buffer, sizeof(data_buffer), 0, NULL, NULL);
-    if (read_bytes < 0) {
-      printf("\r\nReceive failed with bsd error: %d\r\n", errno);
-      close(client_socket);
-      return;
-    }
-    total_bytes_received = total_bytes_received + read_bytes;
-    now                  = osKernelGetTickCount();
-#if 0
-    if ((now - start) > app_timeout)
-#else
-      if ((now - start) > (app_timeout*tick_count_s))
-#endif
-      {
-        printf("\r\nTest Time Out: %ld ms\r\n", (now - start));
-        break;
-      }
-  }
-  printf("\r\nUDP_RX Throughput test finished\r\n");
-  printf("\r\nTotal bytes received : %ld\r\n", total_bytes_received);
-
-  measure_and_print_throughput(total_bytes_received, (now - start));
 
   close(client_socket);
 #endif

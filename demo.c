@@ -33,9 +33,9 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242807"
-#define VERSION_GOAL        "check wifi per number"
-#define MODIFY_START_DATE   "2024.07.12"
+#define AMPAK_CLI_VERSION   "ve01.02.242902"
+#define VERSION_GOAL        "iperf print modify"
+#define MODIFY_START_DATE   "2024.07.15"
 
 /******************************************************
  *                   Enumerations
