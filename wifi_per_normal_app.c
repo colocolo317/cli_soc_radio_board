@@ -783,7 +783,7 @@ void send_data_to_udp_server(void)
 
   printf("\r\nUDP_TX Throughput test start\r\n");
   start = osKernelGetTickCount();
-  while (total_bytes_sent < BYTES_TO_SEND)
+  while (total_bytes_sent < BYTES_TO_SEND && !wifi_per_terminate)
   {
     sent_bytes =
         sendto(client_socket, data_buffer, UDP_BUFFER_SIZE, 0, (struct sockaddr *)&server_address, socket_length);
