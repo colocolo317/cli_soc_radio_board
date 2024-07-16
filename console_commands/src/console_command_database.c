@@ -1392,6 +1392,16 @@ static const console_descriptive_command_t _bt_per_stats_command = {
   .argument_list = { CONSOLE_ARG_END }
 };
 
+extern sl_status_t rsi_bt_per_stats_periodic_command_handler(console_args_t *arguments);
+static const char *_bt_per_stats_periodic_arg_help[] = {};
+
+static const console_descriptive_command_t _bt_per_stats_periodic_command = {
+  .description   = "Periodically read and clear BLE PER statistics",
+  .argument_help = _bt_per_stats_periodic_arg_help,
+  .handler       = rsi_bt_per_stats_periodic_command_handler,
+  .argument_list = { CONSOLE_ARG_END }
+};
+
 extern sl_status_t rsi_bt_get_local_name_command_handler(console_args_t *arguments);
 static const char *_bt_get_local_name_arg_help[] = {};
 
@@ -1644,6 +1654,7 @@ const console_database_t console_command_database = { CONSOLE_DATABASE_ENTRIES(
   { "ble_per_transmit", &_ble_per_transmit_command },
   { "ble_per_receive", &_ble_per_receive_command },
   { "bt_per_stats", &_bt_per_stats_command },
+  { "bt_per_stats_periodic", &_bt_per_stats_periodic_command },
   { "bt_get_local_name", &_bt_get_local_name_command },
   { "bt_get_local_device_address", &_bt_get_local_device_address_command },
   { "bt_set_local_name", &_bt_set_local_name_command },

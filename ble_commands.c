@@ -15,6 +15,7 @@
 
 #include <rsi_common_apis.h>
 */
+#include "cmsis_os2.h"
 #include "sl_wifi.h"
 #include "sl_constants.h"
 #include "ble_config.h"
@@ -174,6 +175,19 @@ const sl_wifi_device_configuration_t sl_wifi_ble_configuration_cli = {
                       ),
                      .config_feature_bit_map = 0 }
 };
+
+const osThreadAttr_t ble_stats_periodic_thread_attr = {
+  .name       = "ble_stats_periodic_thread",
+  .attr_bits  = 0,
+  .cb_mem     = 0,
+  .cb_size    = 0,
+  .stack_mem  = 0,
+  .stack_size = 1024,
+  .priority   = 0,
+  .tz_module  = 0,
+  .reserved   = 0,
+};
+
 static rsi_ble_per_transmit_t rsi_ble_per_tx;
 static rsi_ble_per_receive_t rsi_ble_per_rx;
 static rsi_bt_per_stats_t per_stats;
@@ -253,34 +267,49 @@ sl_status_t rsi_bt_per_stats_command_handler(console_args_t *arguments)
   total_tx_dones = total_tx_dones + per_stats.tx_dones;
   total_crc_fail_cnt = total_crc_fail_cnt + per_stats.crc_fail_cnt;
   total_crc_pass_cnt = total_crc_pass_cnt + per_stats.crc_pass_cnt;
-  total_per = (float)(((float)total_crc_fail_cnt/(float)(total_crc_fail_cnt + total_crc_pass_cnt)))*100;
+  total_per = 100.0 * total_crc_fail_cnt/(total_crc_fail_cnt + total_crc_pass_cnt);
   VERIFY_STATUS_AND_RETURN(status);
 
-  printf("\r\n{\r\n"
-      "\t\"crc_fail_cnt\": %u\r\n"
-      "\t\"crc_pass_cnt\": %u\r\n"
-      "\t\"tx_dones\": %u\r\n"
-      "\t\"rssi\": %d\r\n"
-      "\t\"id_pkts_rcvd\":%u\r\n"
-      "\t\"total_tx_dones\": %ld \r\n"
-      "\t\"total_crc_fail_cnt\": %ld \r\n"
-      "\t\"total_crc_pass_cnt\": %ld \r\n"
-      "\t\"total_pkt\": %ld \r\n"
-      "\t\"total_per\": %.3f%%\r\n"
-      "}\r\n",
-      per_stats.crc_fail_cnt,
-      per_stats.crc_pass_cnt,
-      per_stats.tx_dones,
-      per_stats.rssi,
+  printf(
+      "id_pkts_rcvd :%u\r\n"
+      "crc_fail_cnt : %u crc_pass_cnt : %u rssi : %d\r\n"
+      "total_crc_fail_cnt : %lu total_crc_pass_cnt : %lu total_rx_pkt : %lu \r\n"
+      "total_per : %.3f%%\r\n"
+      "tx_pkt_send : %u total_tx_pkt : %lu \r\n",
       per_stats.id_pkts_rcvd,
-      total_tx_dones,
-      total_crc_fail_cnt,
-      total_crc_pass_cnt,
-      (total_crc_fail_cnt+total_crc_pass_cnt),
-      total_per);
+      per_stats.crc_fail_cnt, per_stats.crc_pass_cnt, per_stats.rssi,
+      total_crc_fail_cnt, total_crc_pass_cnt, (total_crc_fail_cnt+total_crc_pass_cnt),
+      total_per,
+      per_stats.tx_dones, total_tx_dones
+      );
 
   return status;
 }
+
+void ble_stats_print(void* args)
+{
+  UNUSED_PARAMETER(args);
+  do
+  {
+    rsi_bt_per_stats_command_handler(NULL);
+  }  while(osDelay(1000) == osOK);
+}
+
+sl_status_t rsi_bt_per_stats_periodic_command_handler(console_args_t *arguments)
+{
+  UNUSED_PARAMETER(arguments);
+  sl_status_t status   = SL_STATUS_OK;
+
+  if(osThreadNew( ble_stats_print, NULL, &ble_stats_periodic_thread_attr) != NULL)
+  { return SL_STATUS_OK; }
+  else
+  { return SL_STATUS_FAIL; }
+
+  return status;
+}
+
+
+
 
 sl_status_t rsi_bt_set_local_name_command_handler(console_args_t *arguments)
 {
