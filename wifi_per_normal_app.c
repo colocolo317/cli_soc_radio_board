@@ -268,8 +268,10 @@ volatile uint8_t tick_count_s = 10;
 #else
 volatile uint8_t tick_count_s = 1;
 #endif
+
 volatile uint8_t wifi_per_terminate = 0; // add end signal
 volatile uint8_t has_data_received = 0;
+
 #define RTX32_OVERFLOW 4000000000
 /// for rx
 volatile uint64_t bytes_read       = 0;

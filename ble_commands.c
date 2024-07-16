@@ -68,7 +68,7 @@ osSemaphoreId_t ble_thread_sem;
 #define BLE_TRANSMIT_CMD_ID 0x13
 #define BLE_RECEIVE_CMD_ID  0x14
 
-#define BLE_ACCESS_ADDR    0x71764129
+#define BLE_ACCESS_ADDR    0x71764230
 #define BLE_TX_PKT_LEN     32
 #define BLE_PHY_RATE       LE_ONE_MBPS
 #define BLE_RX_CHNL_NUM    10
@@ -182,10 +182,13 @@ static uint8_t rsi_app_resp_get_dev_addr[RSI_DEV_ADDR_LEN]      = { 0 };
 uint8_t local_dev_addr[18]    = { 0 };
 
 uint8_t adv[31] = { 2, 1, 6 };
+uint32_t total_crc_fail_cnt=0, total_crc_pass_cnt=0, total_tx_dones=0;
+float total_per=0;
 
 sl_status_t rsi_ble_per_transmit_command_handler(console_args_t *arguments)
 {
   sl_status_t status   = SL_STATUS_OK;
+  //uint32_t pkt_num = 0;
   rsi_ble_per_tx.cmd_ix                       = BLE_TRANSMIT_CMD_ID;
   rsi_ble_per_tx.transmit_enable              = (uint8_t)GET_COMMAND_ARG(arguments, 0);
   *(uint32_t *)&rsi_ble_per_tx.access_addr[0] = BLE_ACCESS_ADDR;
@@ -206,6 +209,7 @@ sl_status_t rsi_ble_per_transmit_command_handler(console_args_t *arguments)
   rsi_ble_per_tx.rf_chain                     = GET_OPTIONAL_COMMAND_ARG(arguments, 9, BT_HP_CHAIN_BIT, const uint8_t);
   *(uint32_t *)&rsi_ble_per_tx.num_pkts[0]     = GET_OPTIONAL_COMMAND_ARG(arguments, 10, 0, const uint32_t);
   status = rsi_ble_per_transmit(&rsi_ble_per_tx);
+  status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
 
   VERIFY_STATUS_AND_RETURN(status);
   return status;
@@ -246,20 +250,34 @@ sl_status_t rsi_bt_per_stats_command_handler(console_args_t *arguments)
   UNUSED_PARAMETER(arguments);
   sl_status_t status   = SL_STATUS_OK;
   status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
+  total_tx_dones = total_tx_dones + per_stats.tx_dones;
+  total_crc_fail_cnt = total_crc_fail_cnt + per_stats.crc_fail_cnt;
+  total_crc_pass_cnt = total_crc_pass_cnt + per_stats.crc_pass_cnt;
+  total_per = (float)(((float)total_crc_fail_cnt/(float)(total_crc_fail_cnt + total_crc_pass_cnt)))*100;
   VERIFY_STATUS_AND_RETURN(status);
 
   printf("\r\n{\r\n"
-            "\t\"crc_fail_cnt\": %u\r\n"
-            "\t\"crc_pass_cnt\": %u\r\n"
-            "\t\"tx_dones\": %u\r\n"
-            "\t\"rssi\": %d\r\n"
-            "\t\"id_pkts_rcvd\":%u\r\n"
-            "}\r\n",
-            per_stats.crc_fail_cnt,
-            per_stats.crc_pass_cnt,
-            per_stats.tx_dones,
-            per_stats.rssi,
-            per_stats.id_pkts_rcvd);
+      "\t\"crc_fail_cnt\": %u\r\n"
+      "\t\"crc_pass_cnt\": %u\r\n"
+      "\t\"tx_dones\": %u\r\n"
+      "\t\"rssi\": %d\r\n"
+      "\t\"id_pkts_rcvd\":%u\r\n"
+      "\t\"total_tx_dones\": %ld \r\n"
+      "\t\"total_crc_fail_cnt\": %ld \r\n"
+      "\t\"total_crc_pass_cnt\": %ld \r\n"
+      "\t\"total_pkt\": %ld \r\n"
+      "\t\"total_per\": %.3f%%\r\n"
+      "}\r\n",
+      per_stats.crc_fail_cnt,
+      per_stats.crc_pass_cnt,
+      per_stats.tx_dones,
+      per_stats.rssi,
+      per_stats.id_pkts_rcvd,
+      total_tx_dones,
+      total_crc_fail_cnt,
+      total_crc_pass_cnt,
+      (total_crc_fail_cnt+total_crc_pass_cnt),
+      total_per);
 
   return status;
 }

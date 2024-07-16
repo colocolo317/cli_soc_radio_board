@@ -33,8 +33,8 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242904"
-#define VERSION_GOAL        "wpn_stop apply to udp tx"
+#define AMPAK_CLI_VERSION   "ve01.02.242905"
+#define VERSION_GOAL        "merge BLE per from Ed"
 #define MODIFY_START_DATE   "2024.07.16"
 
 /******************************************************
