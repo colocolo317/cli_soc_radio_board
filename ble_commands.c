@@ -102,6 +102,19 @@ osSemaphoreId_t ble_thread_sem;
 #define DUTY_CYCLING_DISABLE 0
 #define DUTY_CYCLING_ENABLE  1
 
+typedef enum amk_ble_per_trx
+{
+  ble_per_tx_rx,
+  ble_per_tx,
+  ble_per_rx,
+} amk_ble_per_trx_t;
+
+typedef struct stats_periodic_args
+{
+  uint8_t trx_type;
+}stats_periodic_args_t;
+
+#if 1
 const sl_wifi_device_configuration_t sl_wifi_ble_configuration_cli = {
     .boot_option = LOAD_NWP_FW,
     .mac_address = NULL,
@@ -175,6 +188,7 @@ const sl_wifi_device_configuration_t sl_wifi_ble_configuration_cli = {
                       ),
                      .config_feature_bit_map = 0 }
 };
+#endif
 
 const osThreadAttr_t ble_stats_periodic_thread_attr = {
   .name       = "ble_stats_periodic_thread",
@@ -188,6 +202,8 @@ const osThreadAttr_t ble_stats_periodic_thread_attr = {
   .reserved   = 0,
 };
 
+static stats_periodic_args_t trx_run = {ble_per_tx_rx};
+static volatile uint8_t amk_ble_stats_periodic = 0;
 static rsi_ble_per_transmit_t rsi_ble_per_tx;
 static rsi_ble_per_receive_t rsi_ble_per_rx;
 static rsi_bt_per_stats_t per_stats;
@@ -199,12 +215,26 @@ uint8_t adv[31] = { 2, 1, 6 };
 uint32_t total_crc_fail_cnt=0, total_crc_pass_cnt=0, total_tx_dones=0;
 float total_per=0;
 
+void amk_ble_stats_print(void* args);
+sl_status_t amk_bt_per_stats_periodic_new_thread(void* args);
+
 sl_status_t rsi_ble_per_transmit_command_handler(console_args_t *arguments)
 {
   sl_status_t status   = SL_STATUS_OK;
   //uint32_t pkt_num = 0;
   rsi_ble_per_tx.cmd_ix                       = BLE_TRANSMIT_CMD_ID;
   rsi_ble_per_tx.transmit_enable              = (uint8_t)GET_COMMAND_ARG(arguments, 0);
+  if(rsi_ble_per_tx.transmit_enable == 0)
+  {
+    amk_ble_stats_periodic = 0;
+    trx_run.trx_type = ble_per_tx_rx;
+  }
+  else
+  {
+    amk_ble_stats_periodic = 1;
+    trx_run.trx_type = ble_per_tx;
+  }
+
   *(uint32_t *)&rsi_ble_per_tx.access_addr[0] = BLE_ACCESS_ADDR;
   *(uint16_t *)&rsi_ble_per_tx.pkt_len[0]     = (uint16_t)GET_COMMAND_ARG(arguments, 1);
   rsi_ble_per_tx.phy_rate                     = (uint8_t)GET_COMMAND_ARG(arguments, 2);
@@ -223,7 +253,8 @@ sl_status_t rsi_ble_per_transmit_command_handler(console_args_t *arguments)
   rsi_ble_per_tx.rf_chain                     = GET_OPTIONAL_COMMAND_ARG(arguments, 9, BT_HP_CHAIN_BIT, const uint8_t);
   *(uint32_t *)&rsi_ble_per_tx.num_pkts[0]     = GET_OPTIONAL_COMMAND_ARG(arguments, 10, 0, const uint32_t);
   status = rsi_ble_per_transmit(&rsi_ble_per_tx);
-  status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
+  status = amk_bt_per_stats_periodic_new_thread(&trx_run);
+  //status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
 
   VERIFY_STATUS_AND_RETURN(status);
   return status;
@@ -235,6 +266,17 @@ sl_status_t rsi_ble_per_receive_command_handler(console_args_t *arguments)
 
   rsi_ble_per_rx.cmd_ix                       = BLE_RECEIVE_CMD_ID;
   rsi_ble_per_rx.receive_enable               = (uint8_t)GET_COMMAND_ARG(arguments, 0);
+  if(rsi_ble_per_rx.receive_enable == 0)
+  {
+    amk_ble_stats_periodic = 0;
+    trx_run.trx_type = ble_per_tx_rx;
+  }
+  else
+  {
+    amk_ble_stats_periodic = 1;
+    trx_run.trx_type = ble_per_rx;
+  }
+
   *(uint32_t *)&rsi_ble_per_rx.access_addr[0] = BLE_ACCESS_ADDR;
   rsi_ble_per_rx.ext_data_len_indication      = EXT_DATA_LEN_IND;
   rsi_ble_per_rx.phy_rate                     = (uint8_t)GET_COMMAND_ARG(arguments, 1);
@@ -251,9 +293,9 @@ sl_status_t rsi_ble_per_receive_command_handler(console_args_t *arguments)
   //rsi_ble_per_rx.rf_chain                     = GET_OPTIONAL_COMMAND_ARG(arguments, 4, BT_HP_CHAIN_BIT, const uint8_t); //stone change 2024/6/6 for ble rx test
   rsi_ble_per_rx.rf_chain                     = GET_OPTIONAL_COMMAND_ARG(arguments, 4, 2, const uint8_t); //stone change 2024/6/6 for ble rx test
 
-
   //! start the Receive PER functionality
   status = rsi_ble_per_receive(&rsi_ble_per_rx);
+  status = amk_bt_per_stats_periodic_new_thread(&trx_run);
 
   VERIFY_STATUS_AND_RETURN(status);
   return status;
@@ -261,55 +303,65 @@ sl_status_t rsi_ble_per_receive_command_handler(console_args_t *arguments)
 
 sl_status_t rsi_bt_per_stats_command_handler(console_args_t *arguments)
 {
-  UNUSED_PARAMETER(arguments);
   sl_status_t status   = SL_STATUS_OK;
-  status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
-  total_tx_dones = total_tx_dones + per_stats.tx_dones;
-  total_crc_fail_cnt = total_crc_fail_cnt + per_stats.crc_fail_cnt;
-  total_crc_pass_cnt = total_crc_pass_cnt + per_stats.crc_pass_cnt;
-  total_per = 100.0 * total_crc_fail_cnt/(total_crc_fail_cnt + total_crc_pass_cnt);
-  VERIFY_STATUS_AND_RETURN(status);
+  switch(arguments->arg[0])
+  {
+    case ble_per_tx_rx:
+    case ble_per_tx:
+    case ble_per_rx:
+    default:
+      status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
+      total_tx_dones = total_tx_dones + per_stats.tx_dones;
+      total_crc_fail_cnt = total_crc_fail_cnt + per_stats.crc_fail_cnt;
+      total_crc_pass_cnt = total_crc_pass_cnt + per_stats.crc_pass_cnt;
+      total_per = 100.0 * total_crc_fail_cnt/(total_crc_fail_cnt + total_crc_pass_cnt);
+      VERIFY_STATUS_AND_RETURN(status);
 
-  printf(
-      "id_pkts_rcvd :%u\r\n"
-      "crc_fail_cnt : %u crc_pass_cnt : %u rssi : %d\r\n"
-      "total_crc_fail_cnt : %lu total_crc_pass_cnt : %lu total_rx_pkt : %lu \r\n"
-      "total_per : %.3f%%\r\n"
-      "tx_pkt_send : %u total_tx_pkt : %lu \r\n",
-      per_stats.id_pkts_rcvd,
-      per_stats.crc_fail_cnt, per_stats.crc_pass_cnt, per_stats.rssi,
-      total_crc_fail_cnt, total_crc_pass_cnt, (total_crc_fail_cnt+total_crc_pass_cnt),
-      total_per,
-      per_stats.tx_dones, total_tx_dones
+      printf(
+          "id_pkts_rcvd :%u\r\n"
+          "crc_fail_cnt : %u crc_pass_cnt : %u rssi : %d\r\n"
+          "total_crc_fail_cnt : %lu total_crc_pass_cnt : %lu total_rx_pkt : %lu \r\n"
+          "total_per : %.3f%%\r\n"
+          "tx_pkt_send : %u total_tx_pkt : %lu \r\n",
+          per_stats.id_pkts_rcvd,
+          per_stats.crc_fail_cnt, per_stats.crc_pass_cnt, per_stats.rssi,
+          total_crc_fail_cnt, total_crc_pass_cnt, (total_crc_fail_cnt+total_crc_pass_cnt),
+          total_per,
+          per_stats.tx_dones, total_tx_dones
       );
+      break;
+  }
 
   return status;
 }
 
-void ble_stats_print(void* args)
+void amk_ble_stats_print(void* args)
 {
-  UNUSED_PARAMETER(args);
+  static console_args_t console_arg = {0};
+  stats_periodic_args_t trx_run = *(stats_periodic_args_t*) args;
+  console_arg.arg[0] = trx_run.trx_type;
   do
   {
-    rsi_bt_per_stats_command_handler(NULL);
-  }  while(osDelay(1000) == osOK);
+    rsi_bt_per_stats_command_handler(&console_arg);
+  }  while(osDelay(1000) == osOK && amk_ble_stats_periodic != 0);
+
+  //amk_ble_stats_periodic = 1;
+  osThreadExit();
+}
+
+sl_status_t amk_bt_per_stats_periodic_new_thread(void* args)
+{
+  if(osThreadNew( amk_ble_stats_print, args, &ble_stats_periodic_thread_attr) != NULL)
+  { return SL_STATUS_OK; }
+  else
+  { return SL_STATUS_FAIL; }
 }
 
 sl_status_t rsi_bt_per_stats_periodic_command_handler(console_args_t *arguments)
 {
   UNUSED_PARAMETER(arguments);
-  sl_status_t status   = SL_STATUS_OK;
-
-  if(osThreadNew( ble_stats_print, NULL, &ble_stats_periodic_thread_attr) != NULL)
-  { return SL_STATUS_OK; }
-  else
-  { return SL_STATUS_FAIL; }
-
-  return status;
+  return amk_bt_per_stats_periodic_new_thread(&trx_run);
 }
-
-
-
 
 sl_status_t rsi_bt_set_local_name_command_handler(console_args_t *arguments)
 {

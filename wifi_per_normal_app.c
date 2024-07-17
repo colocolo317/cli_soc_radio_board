@@ -616,7 +616,7 @@ static void application_start(void *argument)
     {
       while (!has_client_connected)
       {
-        osDelay(10);
+        osDelay(100);
       }
       osDelay(MAX_DELAY_FOR_SOFTAP_TX_TEST*1000);
     }
