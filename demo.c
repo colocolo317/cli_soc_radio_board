@@ -33,9 +33,9 @@ bool end_of_cmd = false;
 
 #define OFFSETS(a, b, c, d) uint8_t offsets[] = { 0, sizeof(#a), sizeof(#b), sizeof(#c) }
 
-#define AMPAK_CLI_VERSION   "ve01.02.242907"
-#define VERSION_GOAL        "BLE stats format change, add ble stats periodic command"
-#define MODIFY_START_DATE   "2024.07.16"
+#define AMPAK_CLI_VERSION   "ve01.02.242908"
+#define VERSION_GOAL        "BLE stats format change"
+#define MODIFY_START_DATE   "2024.07.17"
 
 /******************************************************
  *                   Enumerations

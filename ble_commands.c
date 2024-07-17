@@ -253,6 +253,7 @@ sl_status_t rsi_ble_per_transmit_command_handler(console_args_t *arguments)
   rsi_ble_per_tx.rf_chain                     = GET_OPTIONAL_COMMAND_ARG(arguments, 9, BT_HP_CHAIN_BIT, const uint8_t);
   *(uint32_t *)&rsi_ble_per_tx.num_pkts[0]     = GET_OPTIONAL_COMMAND_ARG(arguments, 10, 0, const uint32_t);
   status = rsi_ble_per_transmit(&rsi_ble_per_tx);
+  osDelay(1000);
   status = amk_bt_per_stats_periodic_new_thread(&trx_run);
   //status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
 
@@ -295,6 +296,7 @@ sl_status_t rsi_ble_per_receive_command_handler(console_args_t *arguments)
 
   //! start the Receive PER functionality
   status = rsi_ble_per_receive(&rsi_ble_per_rx);
+  osDelay(1000);
   status = amk_bt_per_stats_periodic_new_thread(&trx_run);
 
   VERIFY_STATUS_AND_RETURN(status);
@@ -304,31 +306,54 @@ sl_status_t rsi_ble_per_receive_command_handler(console_args_t *arguments)
 sl_status_t rsi_bt_per_stats_command_handler(console_args_t *arguments)
 {
   sl_status_t status   = SL_STATUS_OK;
+  status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
+  VERIFY_STATUS_AND_RETURN(status);
+  float fail_rate;
+
   switch(arguments->arg[0])
   {
-    case ble_per_tx_rx:
     case ble_per_tx:
-    case ble_per_rx:
-    default:
-      status = rsi_bt_per_stats(BT_PER_STATS_CMD_ID, &per_stats);
       total_tx_dones = total_tx_dones + per_stats.tx_dones;
+      printf(
+          "id_pkts_send: %u "
+          "tx_pkt_send: %u total_tx_pkt: %lu \r\n",
+          per_stats.id_pkts_rcvd,
+          per_stats.tx_dones, total_tx_dones
+      );
+      break;
+    case ble_per_rx:
+      fail_rate = 100.0 * per_stats.crc_fail_cnt/(per_stats.crc_fail_cnt + per_stats.crc_pass_cnt);
       total_crc_fail_cnt = total_crc_fail_cnt + per_stats.crc_fail_cnt;
       total_crc_pass_cnt = total_crc_pass_cnt + per_stats.crc_pass_cnt;
       total_per = 100.0 * total_crc_fail_cnt/(total_crc_fail_cnt + total_crc_pass_cnt);
-      VERIFY_STATUS_AND_RETURN(status);
-
       printf(
-          "id_pkts_rcvd :%u\r\n"
-          "crc_fail_cnt : %u crc_pass_cnt : %u rssi : %d\r\n"
-          "total_crc_fail_cnt : %lu total_crc_pass_cnt : %lu total_rx_pkt : %lu \r\n"
-          "total_per : %.3f%%\r\n"
-          "tx_pkt_send : %u total_tx_pkt : %lu \r\n",
+          "id_pkts_rcvd: %6u crc_fail: %3u crc_pass: %8u faild_rate: %.3f%%\r\n"
+          "rssi: %4d [Summary] crc_fail: %3lu crc_pass: %8lu faild_rate: %.3f%%\r\n\r\n",
+          per_stats.id_pkts_rcvd, per_stats.crc_fail_cnt, per_stats.crc_pass_cnt, fail_rate,
+          per_stats.rssi, total_crc_fail_cnt, total_crc_pass_cnt, total_per
+      );
+      break;
+
+    case ble_per_tx_rx:
+    default:
+      total_tx_dones = total_tx_dones + per_stats.tx_dones;
+      fail_rate = 100.0 * per_stats.crc_fail_cnt/(per_stats.crc_fail_cnt + per_stats.crc_pass_cnt);
+      total_crc_fail_cnt = total_crc_fail_cnt + per_stats.crc_fail_cnt;
+      total_crc_pass_cnt = total_crc_pass_cnt + per_stats.crc_pass_cnt;
+      total_per = 100.0 * total_crc_fail_cnt/(total_crc_fail_cnt + total_crc_pass_cnt);
+      printf(
+          "id_pkts_send: %u "
+          "tx_pkt_send: %u total_tx_pkt: %lu \r\n",
           per_stats.id_pkts_rcvd,
-          per_stats.crc_fail_cnt, per_stats.crc_pass_cnt, per_stats.rssi,
-          total_crc_fail_cnt, total_crc_pass_cnt, (total_crc_fail_cnt+total_crc_pass_cnt),
-          total_per,
           per_stats.tx_dones, total_tx_dones
       );
+      printf(
+          "id_pkts_rcvd: %6u crc_fail: %3u crc_pass: %8u faild_rate: %.3f%%\r\n"
+          "rssi: %4d [Summary] crc_fail: %3lu crc_pass: %8lu faild_rate: %.3f%%\r\n\r\n",
+          per_stats.id_pkts_rcvd, per_stats.crc_fail_cnt, per_stats.crc_pass_cnt, fail_rate,
+          per_stats.rssi, total_crc_fail_cnt, total_crc_pass_cnt, total_per
+      );
+
       break;
   }
 
